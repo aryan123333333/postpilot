@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    @page { size: 794px 1123px; margin: 0; }
+    :root {
+      --c-bg: #f0f1f2;
+      --c-accent: #3889b1;
+      --c-text: #191b1c;
+      --c-muted: #7d8487;
+      --c-mid: #4c616b;
+      --c-surface: #e9eced;
+      --c-border: #b5bec2;
+    }
+    html, body { margin: 0; padding: 0; width: 794px; height: 1123px; background: var(--c-bg); color: var(--c-text); font-family: 'Inter', sans-serif; }
+    @media screen {
+      html { height: auto; display: flex; justify-content: center; min-height: 100vh; background: var(--c-bg); }
+      body { transform-origin: top center; scale: min(1, calc(100vw / 794), calc(100vh / 1123)); margin: 0 auto; box-shadow: 0 0 60px rgba(0,0,0,0.2); }
+    }
+    .cover { width: 794px; height: 1123px; position: relative; box-sizing: border-box; overflow: hidden; }
+
+    .bg-layer { position: absolute; inset: 0; z-index: 0; background: var(--c-bg); }
+    .grid-layer {
+      position: absolute; inset: 0; z-index: 1; overflow: hidden;
+      background-image:
+        linear-gradient(rgba(72, 97, 107, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(72, 97, 107, 0.04) 1px, transparent 1px);
+      background-size: 50px 50px;
+    }
+    .anchor-line {
+      position: absolute;
+      left: 95px;
+      top: 112px;
+      bottom: 112px;
+      width: 6px;
+      background: var(--c-mid);
+      z-index: 2;
+    }
+    .content { position: absolute; inset: 0; z-index: 3; }
+
+    .kicker {
+      position: absolute; top: 168px; left: 148px;
+      font-size: 12pt; font-weight: 500; letter-spacing: 4px;
+      text-transform: uppercase; color: var(--c-muted);
+    }
+    .hero-title {
+      position: absolute; top: 240px; left: 148px; max-width: 600px;
+      font-size: 46pt; font-weight: 900; line-height: 1.15;
+      color: var(--c-text); letter-spacing: -1px;
+    }
+    .hero-title span { color: var(--c-accent); }
+
+    .summary {
+      position: absolute; top: 460px; left: 148px; max-width: 520px;
+      font-size: 13pt; line-height: 1.65; color: var(--c-muted);
+    }
+    .meta {
+      position: absolute; top: 680px; left: 148px;
+      font-size: 11pt; color: var(--c-muted); line-height: 1.8;
+    }
+    .meta strong { color: var(--c-text); font-weight: 600; }
+
+    .footer-bar {
+      position: absolute; bottom: 60px; left: 148px; right: 60px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 9pt; letter-spacing: 2px; text-transform: uppercase; color: var(--c-muted);
+    }
+    .badge {
+      display: inline-block; padding: 4px 12px;
+      border: 1.5px solid var(--c-border); border-radius: 3px;
+      font-size: 9pt; letter-spacing: 2px; text-transform: uppercase; color: var(--c-mid);
+    }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <div class="bg-layer"></div>
+    <div class="grid-layer"></div>
+    <div class="anchor-line"></div>
+    <div class="content">
+      <div class="kicker">Product Overview Document</div>
+      <div class="hero-title">PostPilot</div>
+      <div class="summary">
+        An AI-powered social media content engine that generates platform-optimized posts in seconds. Six platforms, six tones, one click. Built for creators, marketers, and brands who want to stop spending hours writing and start posting content that converts.
+      </div>
+      <div class="meta">
+        <strong>Category:</strong> SaaS / AI Content Generation<br>
+        <strong>Status:</strong> Production Ready<br>
+        <strong>Stack:</strong> Next.js 16 + TypeScript + AI
+      </div>
+      <div class="footer-bar">
+        <span class="badge">Confidential</span>
+        <span>June 2025</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
