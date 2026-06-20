@@ -17,7 +17,6 @@ import {
   Star,
   RefreshCw,
   X,
-  Rocket,
   BarChart3,
   Globe,
   Palette,
@@ -58,12 +57,12 @@ interface PricingPlan {
 /* ------------------------------------------------------------------ */
 
 const PLATFORMS = [
-  { id: 'twitter', name: 'Twitter / X', icon: Twitter, color: '#1DA1F2', desc: '280-char punchy posts' },
-  { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: '#0A66C2', desc: 'Professional long-form' },
-  { id: 'instagram', name: 'Instagram', icon: Instagram, color: '#E4405F', desc: 'Visual captions + hashtags' },
+  { id: 'twitter', name: 'Twitter / X', icon: Twitter, color: '#1DA1F2', desc: 'Short & punchy tweets' },
+  { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: '#0A66C2', desc: 'Long pro posts' },
+  { id: 'instagram', name: 'Instagram', icon: Instagram, color: '#E4405F', desc: 'Captions + hashtags' },
   { id: 'tiktok', name: 'TikTok', icon: Play, color: '#000000', desc: 'Viral short hooks' },
-  { id: 'youtube-long', name: 'YouTube Long', icon: Youtube, color: '#FF0000', desc: 'Full video description' },
-  { id: 'youtube-shorts', name: 'YouTube Shorts', icon: Play, color: '#FF0000', desc: 'Short punchy hooks' },
+  { id: 'youtube-long', name: 'YT Long', icon: Youtube, color: '#FF0000', desc: 'Full video description' },
+  { id: 'youtube-shorts', name: 'YT Shorts', icon: Play, color: '#FF0000', desc: 'Short punchy hooks' },
 ] as const;
 
 const TONES = [
@@ -112,12 +111,12 @@ const STEPS = [
   {
     step: '01',
     title: 'Describe Your Topic',
-    description: 'Enter a topic, paste an article, or upload a transcript. PostPilot understands context and extracts the core message automatically.',
+    description: 'Enter a topic, paste an article, or describe a video idea. PostPilot understands context and creates platform-ready content automatically.',
   },
   {
     step: '02',
     title: 'Choose Platform & Tone',
-    description: 'Select which platforms you need content for and pick your tone. Professional for LinkedIn, casual for Twitter, viral hooks for TikTok.',
+    description: 'Select which platforms you need content for and pick your vibe — Serious for LinkedIn, Chill for Twitter, Funny for TikTok.',
   },
   {
     step: '03',
@@ -196,6 +195,32 @@ const TESTIMONIALS = [
     avatar: 'ER',
   },
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Logo Component                                                     */
+/* ------------------------------------------------------------------ */
+
+function PostPilotLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" fill="none" className={className || 'h-8 w-8'} xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 3C16 3 10 9 10 18C10 22 12.5 26 16 28C19.5 26 22 22 22 18C22 9 16 3 16 3Z" fill="url(#pg)" />
+      <circle cx="16" cy="15" r="3" fill="white" opacity="0.9" />
+      <path d="M10 18L7 23L10 21V18Z" fill="#F97316" />
+      <path d="M22 18L25 23L22 21V18Z" fill="#F97316" />
+      <path d="M14 26C14 26 16 30 16 30C16 30 18 26 18 26" fill="url(#fg)" />
+      <defs>
+        <linearGradient id="pg" x1="10" y1="3" x2="22" y2="28" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#F97316" />
+          <stop offset="1" stopColor="#F59E0B" />
+        </linearGradient>
+        <linearGradient id="fg" x1="14" y1="26" x2="18" y2="30" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#EF4444" />
+          <stop offset="1" stopColor="#F59E0B" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Helper: unique ID                                                  */
@@ -326,9 +351,7 @@ export default function Home() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <button onClick={() => setActiveView('landing')} className="flex items-center gap-2.5 cursor-pointer group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-brand">
-              <Rocket className="h-5 w-5 text-white" />
-            </div>
+            <PostPilotLogo className="h-9 w-9" />
             <span className="text-lg font-bold tracking-tight">PostPilot</span>
           </button>
 
@@ -1018,9 +1041,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-brand">
-                <Rocket className="h-4 w-4 text-white" />
-              </div>
+              <PostPilotLogo className="h-8 w-8" />
               <span className="text-sm font-semibold">PostPilot</span>
             </div>
             <p className="text-xs text-muted-foreground">

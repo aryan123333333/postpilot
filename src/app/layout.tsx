@@ -14,20 +14,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PostPilot — AI-Powered Social Media Content Engine",
+  title: "PostPilot — AI Social Media Post Generator",
   description:
-    "Generate viral social media content in seconds. AI-crafted posts for Twitter/X, LinkedIn, Instagram, TikTok & YouTube. Try free today.",
+    "Generate viral social media posts in seconds. AI-crafted content for Twitter/X, LinkedIn, Instagram, TikTok, YouTube Long & Shorts. Free to start.",
   keywords: [
     "AI content generator",
     "social media tool",
-    "AI SaaS",
+    "AI post generator",
     "content creation",
     "social media marketing",
-    "viral posts",
     "PostPilot",
+    "viral posts",
+    "AI copywriting",
   ],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
+  openGraph: {
+    title: "PostPilot — AI Social Media Post Generator",
+    description:
+      "Generate viral social media posts in seconds. 6 platforms. 6 tones. One click.",
+    type: "website",
+    siteName: "PostPilot",
   },
 };
 
