@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import {
@@ -306,7 +307,15 @@ interface AdminStats {
 
 export default function Home() {
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
   const [activeView, setActiveView] = useState<'landing' | 'app' | 'admin'>('landing');
+
+  /* After sign-in, redirect to app view if callbackUrl had view=app */
+  useEffect(() => {
+    if (status === 'authenticated' && searchParams.get('view') === 'app') {
+      setActiveView('app');
+    }
+  }, [status, searchParams]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [topic, setTopic] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['twitter']);
@@ -327,6 +336,15 @@ export default function Home() {
   const resultsRef = useRef<HTMLDivElement>(null);
   const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
+
+  /* Require sign-in before accessing the app */
+  const goToApp = () => {
+    if (status === 'authenticated') {
+      setActiveView('app');
+    } else {
+      signIn('google', { callbackUrl: '/?view=app' });
+    }
+  };
 
   /* Auto-scroll to results */
   useEffect(() => {
@@ -595,7 +613,7 @@ export default function Home() {
             )}
 
             <Button
-              onClick={() => setActiveView('app')}
+              onClick={goToApp}
               className="gradient-brand text-white border-0 hover:opacity-90 cursor-pointer"
               size="sm"
             >
@@ -720,7 +738,7 @@ export default function Home() {
                     >
                       <Button
                         size="lg"
-                        onClick={() => setActiveView('app')}
+                        onClick={goToApp}
                         className="gradient-brand text-white border-0 hover:opacity-90 px-8 py-6 text-base font-semibold cursor-pointer rounded-xl"
                       >
                         Start Generating — Free
@@ -881,7 +899,7 @@ export default function Home() {
                             <Button
                               className={`mt-8 w-full cursor-pointer rounded-xl ${plan.popular ? 'gradient-brand text-white border-0 hover:opacity-90' : ''}`}
                               variant={plan.popular ? 'default' : 'outline'}
-                              onClick={() => setActiveView('app')}
+                              onClick={goToApp}
                             >
                               {plan.cta}
                               {plan.popular && <ArrowRight className="h-4 w-4 ml-1.5" />}
@@ -960,7 +978,7 @@ export default function Home() {
                     <div className="mt-10">
                       <Button
                         size="lg"
-                        onClick={() => setActiveView('app')}
+                        onClick={goToApp}
                         className="gradient-brand text-white border-0 hover:opacity-90 px-8 py-6 text-base font-semibold cursor-pointer rounded-xl"
                       >
                         <Sparkles className="h-5 w-5 mr-2" />
