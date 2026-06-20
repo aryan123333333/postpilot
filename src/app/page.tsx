@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession, signIn, signOut } from 'next-auth/react';
@@ -305,7 +305,7 @@ interface AdminStats {
 /*  Main Page Component                                                */
 /* ------------------------------------------------------------------ */
 
-export default function Home() {
+function HomeContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const [activeView, setActiveView] = useState<'landing' | 'app' | 'admin'>('landing');
@@ -2134,5 +2134,13 @@ export default function Home() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }
