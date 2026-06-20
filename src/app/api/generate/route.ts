@@ -480,15 +480,88 @@ async function logRateLimit(ip: string): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Credit check — deduct generation credit                            */
+/*  Credit system — cost per generation, deduct from user                */
 /* ------------------------------------------------------------------ */
 
-async function checkCredits(userId: string): Promise<{ allowed: boolean; remaining: number }> {
-  const user = await db.user.findUnique({ where: { id: userId } });
-  if (!user) return { allowed: true, remaining: 50 };
+// Credit costs per action
+const CREDIT_COST_GENERATE = 1;   // 1 credit per generation
+const CREDIT_COST_ENHANCE  = 0;   // free — encourage users to write better prompts
 
-  const remaining = user.creditsLimit - user.creditsUsed;
-  return { allowed: remaining > 0, remaining };
+// Plan limits
+const PLAN_CREDITS: Record<string, number> = {
+  free: 20,
+  pro: 500,
+  enterprise: 99999, // effectively unlimited
+};
+
+function getCreditsForPlan(plan: string): number {
+  return PLAN_CREDITS[plan] || PLAN_CREDITS.free;
+}
+
+interface CreditInfo {
+  allowed: boolean;
+  remaining: number;
+  cost: number;
+  plan: string;
+  maxCredits: number;
+}
+
+async function checkAndDeductCredits(userId: string, cost: number): Promise<CreditInfo> {
+  const user = await db.user.findUnique({ where: { id: userId } });
+  if (!user) return { allowed: true, remaining: 20, cost, plan: 'free', maxCredits: 20 };
+
+  // Enterprise = unlimited
+  if (user.plan === 'enterprise') {
+    return { allowed: true, remaining: 99999, cost, plan: 'enterprise', maxCredits: 99999 };
+  }
+
+  const maxCredits = getCreditsForPlan(user.plan);
+  const remaining = user.credits;
+
+  if (remaining < cost) {
+    return { allowed: false, remaining: 0, cost, plan: user.plan, maxCredits };
+  }
+
+  // Deduct credits
+  await db.user.update({
+    where: { id: userId },
+    data: { credits: { decrement: cost } },
+  });
+
+  return {
+    allowed: true,
+    remaining: user.credits - cost,
+    cost,
+    plan: user.plan,
+    maxCredits,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  GET credits — endpoint for frontend to check balance               */
+/* ------------------------------------------------------------------ */
+
+export async function GET(request: NextRequest) {
+  try {
+    const userId = request.nextUrl.searchParams.get('userId');
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
+    }
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { credits: true, plan: true, createdAt: true },
+    });
+    if (!user) {
+      return NextResponse.json({ credits: 20, plan: 'free', maxCredits: 20 });
+    }
+    return NextResponse.json({
+      credits: user.credits,
+      plan: user.plan,
+      maxCredits: getCreditsForPlan(user.plan),
+    });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to fetch credits' }, { status: 500 });
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -527,10 +600,10 @@ export async function POST(request: NextRequest) {
 
     // Credit check for authenticated users
     if (userId) {
-      const creditCheck = await checkCredits(userId);
+      const creditCheck = await checkAndDeductCredits(userId, CREDIT_COST_GENERATE);
       if (!creditCheck.allowed) {
         return NextResponse.json(
-          { error: "Generation limit reached. Upgrade your plan for more credits.", creditsRemaining: 0 },
+          { error: "No credits remaining. Upgrade your plan for more credits.", creditsRemaining: 0, plan: creditCheck.plan },
           { status: 403 }
         );
       }
@@ -581,9 +654,14 @@ export async function POST(request: NextRequest) {
 
     // Get remaining credits for response
     let creditsRemaining: number | undefined;
+    let userPlan: string | undefined;
+    let creditCost: number | undefined;
     if (userId) {
-      const creditCheck = await checkCredits(userId);
-      creditsRemaining = creditCheck.remaining;
+      const user = await db.user.findUnique({ where: { id: userId }, select: { credits: true, plan: true } });
+      if (user) {
+        creditsRemaining = user.credits;
+        userPlan = user.plan;
+      }
     }
 
     return NextResponse.json({
@@ -594,6 +672,8 @@ export async function POST(request: NextRequest) {
       tone,
       generatedAt: new Date().toISOString(),
       creditsRemaining,
+      plan: userPlan,
+      creditCost: CREDIT_COST_GENERATE,
     });
   } catch (error) {
     console.error("Generation error:", error);

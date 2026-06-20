@@ -176,11 +176,11 @@ const PRICING: PricingPlan[] = [
     period: 'forever',
     description: 'Perfect for testing the waters',
     features: [
-      '10 generations per month',
+      '20 credits on sign-up',
+      '1 credit per generation',
       'All 6 platforms',
       'All 6 tone presets',
-      'Smart prompt enhancer',
-      'Basic hashtag suggestions',
+      'Smart prompt enhancer (free)',
       'Community support',
     ],
     cta: 'Start Free',
@@ -191,12 +191,12 @@ const PRICING: PricingPlan[] = [
     period: '/month',
     description: 'For creators & solopreneurs',
     features: [
-      'Unlimited generations',
+      '500 credits per month',
+      '1 credit per generation',
       'All 6 platforms + multi-platform blast',
-      'All tone presets + brand voice training',
-      'Advanced hashtag engine',
-      'Content repurposing (URLs & articles)',
-      'Schedule & publish to platforms',
+      'Brand voice training',
+      'Content repurposing',
+      'Schedule & publish',
       'Priority support',
     ],
     cta: 'Go Pro',
@@ -208,6 +208,7 @@ const PRICING: PricingPlan[] = [
     period: '/month',
     description: 'For teams & agencies',
     features: [
+      'Unlimited credits',
       'Everything in Pro',
       '10 brand voice profiles',
       'Team collaboration',
@@ -333,9 +334,9 @@ function HomeContent() {
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
   const [generationsUsed, setGenerationsUsed] = useState(0);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [userPlan, setUserPlan] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
-  const [adminLoading, setAdminLoading] = useState(false);
 
   /* Require sign-in before accessing the app */
   const goToApp = () => {
@@ -352,6 +353,19 @@ function HomeContent() {
       resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [generatedPosts]);
+
+  /* Fetch user credits when authenticated */
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      fetch('/api/generate?userId=' + (session.user as any).id)
+        .then((r) => r.json())
+        .then((data) => {
+          setCredits(data.credits);
+          setUserPlan(data.plan);
+        })
+        .catch(() => {});
+    }
+  }, [status, session]);
 
   /* Fetch admin stats when admin view is active */
   useEffect(() => {
@@ -448,15 +462,29 @@ function HomeContent() {
             count: postCount,
             mode: inputMode === 'repurpose' ? 'repurpose' : 'generate',
             brandVoice: brandVoice.trim() || undefined,
+            userId: status === 'authenticated' ? (session?.user as any)?.id : undefined,
           }),
         });
 
         const data = await res.json();
 
+        if (res.status === 403) {
+          toast.error(data.error || 'No credits remaining. Upgrade your plan!');
+          setCredits(data.creditsRemaining ?? 0);
+          setIsGenerating(false);
+          return;
+        }
+
         if (!res.ok || !data.success) {
           toast.error(data.error || `Generation failed for ${platform}`);
           continue;
         }
+
+        // Update credits from response
+        if (data.creditsRemaining !== undefined) {
+          setCredits(data.creditsRemaining);
+        }
+        if (data.plan) setUserPlan(data.plan);
 
         const posts: GeneratedPost[] = data.posts.map((content: string) => ({
           id: uid(),
@@ -574,10 +602,10 @@ function HomeContent() {
 
           {/* CTA + Mobile Toggle */}
           <div className="flex items-center gap-3">
-            {generationsUsed > 0 && (
+            {credits !== null && (
               <Badge variant="secondary" className="hidden sm:flex text-xs gap-1.5">
                 <Zap className="h-3 w-3 text-orange-500" />
-                {10 - generationsUsed > 0 ? `${10 - generationsUsed} free left` : 'Upgrade for more'}
+                {credits > 0 ? `${credits} credits` : 'Upgrade'}
               </Badge>
             )}
 
@@ -652,10 +680,10 @@ function HomeContent() {
                     {item}
                   </button>
                 ))}
-                {generationsUsed > 0 && (
+                {credits !== null && (
                   <div className="px-3 py-2 text-xs text-muted-foreground">
                     <Zap className="h-3 w-3 text-orange-500 inline mr-1" />
-                    {10 - generationsUsed > 0 ? `${10 - generationsUsed} free generations left` : 'Upgrade for unlimited'}
+                    {credits > 0 ? `${credits} credits remaining` : 'Upgrade for more credits'}
                   </div>
                 )}
               </div>
@@ -861,7 +889,7 @@ function HomeContent() {
                       <span className="gradient-text">serious results</span>
                     </h2>
                     <p className="mt-4 text-lg text-muted-foreground">
-                      Start free with 10 generations. Upgrade when you are ready to unlock brand voice, scheduling, and unlimited content.
+                      Start free with 20 credits. Each generation costs 1 credit. Upgrade to Pro for 500 credits and unlock enterprise features.
                     </p>
                   </div>
 
@@ -1021,8 +1049,11 @@ function HomeContent() {
                 <div className="flex items-center gap-3">
                   <Badge variant="secondary" className="text-xs gap-1.5">
                     <Zap className="h-3 w-3 text-orange-500" />
-                    {10 - generationsUsed > 0 ? `${10 - generationsUsed} free left` : 'Upgrade'}
+                    {credits !== null ? (credits > 0 ? `${credits} credits left` : 'No credits') : '—'}
                   </Badge>
+                  {userPlan && (
+                    <Badge variant="outline" className="text-xs capitalize">{userPlan}</Badge>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -1277,7 +1308,7 @@ function HomeContent() {
                   <div className="flex gap-3">
                     <Button
                       onClick={handleGenerate}
-                      disabled={isGenerating || generationsUsed >= 10}
+                      disabled={isGenerating || (credits !== null && credits <= 0)}
                       className="flex-1 gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-6 text-base font-semibold"
                       size="lg"
                     >
@@ -1306,13 +1337,13 @@ function HomeContent() {
                     )}
                   </div>
 
-                  {generationsUsed >= 10 && (
+                  {credits !== null && credits <= 0 && (
                     <Card className="rounded-2xl border-orange-300 bg-orange-50/50">
                       <CardContent className="p-4 flex items-center gap-3">
                         <Zap className="h-5 w-5 text-orange-500 flex-shrink-0" />
                         <div>
-                          <p className="text-sm font-semibold text-orange-700">Free limit reached</p>
-                          <p className="text-xs text-orange-600/70">Upgrade to Pro for unlimited generations</p>
+                          <p className="text-sm font-semibold text-orange-700">No credits remaining</p>
+                          <p className="text-xs text-orange-600/70">Upgrade to Pro for 500 credits/month</p>
                         </div>
                         <Button size="sm" className="ml-auto gradient-brand text-white border-0 cursor-pointer text-xs">
                           Upgrade
@@ -1525,7 +1556,7 @@ function HomeContent() {
                       <div className="pt-4">
                         <Button
                           onClick={handleGenerate}
-                          disabled={isGenerating || generationsUsed >= 10}
+                          disabled={isGenerating || (credits !== null && credits <= 0)}
                           variant="outline"
                           className="w-full cursor-pointer rounded-xl py-5"
                         >

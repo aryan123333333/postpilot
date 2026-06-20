@@ -16,8 +16,8 @@ model User {
   emailVerified DateTime?
   image         String?
   role          String    @default("user") // "user" | "admin"
-  creditsUsed   Int       @default(0)
-  creditsLimit  Int       @default(50) // free tier: 50 generations
+  plan          String    @default("free") // "free" | "pro" | "enterprise"
+  credits       Int       @default(20) // credits remaining (deducted per generation)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   accounts      Account[]
