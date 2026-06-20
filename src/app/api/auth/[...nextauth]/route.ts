@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 
 /* ────────────────────────────────────────────────────────────── */
 /*  JWT Sessions — no database sessions, no cookie proxy issues   */
-/*  User data (credits, plan) stored in encrypted token in cookie  */
 /* ────────────────────────────────────────────────────────────── */
 
 export const authOptions: NextAuthOptions = {
@@ -16,25 +15,31 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, account, user }) {
-      // First time sign in — create user in DB if needed, load their data into token
+      // First time sign in — link Google account to DB user
       if (account && user) {
         try {
-          // Upsert user in database
           const existing = await db.user.findUnique({ where: { email: user.email! } });
-          if (!existing) {
-            // First user ever = admin
+          if (existing) {
+            // Update name/image if changed
+            await db.user.update({
+              where: { email: user.email! },
+              data: { name: user.name, image: user.image },
+            });
+          } else {
+            // New user — first user = admin
             const userCount = await db.user.count();
             await db.user.create({
               data: {
-                id: user.id,
                 name: user.name,
                 email: user.email!,
                 image: user.image,
                 role: userCount === 0 ? "admin" : "user",
+                plan: "free",
+                credits: 20,
               },
             });
           }
-          // Fetch full user data from DB (credits, plan, role)
+          // Load user data into token
           const dbUser = await db.user.findUnique({
             where: { email: user.email! },
             select: { id: true, role: true, plan: true, credits: true },
@@ -47,12 +52,11 @@ export const authOptions: NextAuthOptions = {
           }
         } catch (err) {
           console.error("jwt callback error:", err);
-          // Fallback: still set basic info
           token.id = user.id;
         }
       }
 
-      // On subsequent requests, refresh credits from DB so deductions show up
+      // Subsequent requests — refresh credits/plan from DB
       if (token.email && !account) {
         try {
           const dbUser = await db.user.findUnique({
@@ -83,7 +87,6 @@ export const authOptions: NextAuthOptions = {
     },
 
     async signIn({ user, account }) {
-      // Allow all Google sign-ins
       if (account?.provider === "google") return true;
       return true;
     },

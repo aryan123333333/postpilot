@@ -632,7 +632,7 @@ function HomeContent() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => signIn('google', { callbackUrl: '/?view=app' })}
+                onClick={() => signIn('google')}
                 className="cursor-pointer text-xs gap-1.5"
               >
                 <LogIn className="h-4 w-4" />
@@ -2039,6 +2039,21 @@ function HomeContent() {
 
                       <h2 className="text-lg font-bold">{session.user.name}</h2>
                       <p className="text-sm text-muted-foreground mt-1">{session.user.email}</p>
+
+                      {/* Plan & Credits */}
+                      <div className="mt-4 flex items-center justify-center gap-3">
+                        <Badge className={
+                          (session.user as Record<string, unknown>).plan === 'enterprise' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0' :
+                          (session.user as Record<string, unknown>).plan === 'pro' ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-0' :
+                          'bg-muted text-foreground'
+                        }>
+                          {(session.user as Record<string, unknown>).role === 'admin' ? '👑 ' : ''}{((session.user as Record<string, unknown>).plan as string || 'free').charAt(0).toUpperCase() + ((session.user as Record<string, unknown>).plan as string || 'free').slice(1)} Plan
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <Zap className="h-3 w-3 text-orange-500" />
+                          {credits !== null ? credits : (session.user as Record<string, unknown>).credits || 20} credits
+                        </Badge>
+                      </div>
 
                       <div className="mt-6 space-y-3">
                         <Button
