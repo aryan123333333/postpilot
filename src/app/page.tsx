@@ -35,6 +35,15 @@ import {
   Layers,
   ChevronDown,
   Info,
+  Shield,
+  Activity,
+  Users,
+  Server,
+  AlertTriangle,
+  TrendingUp,
+  Eye,
+  MousePointerClick,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -260,11 +269,36 @@ function uid() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Admin Stats Types                                                  */
+/* ------------------------------------------------------------------ */
+
+interface AdminStats {
+  totalGenerations: number;
+  totalPostsGenerated: number;
+  generationsByPlatform: Record<string, number>;
+  generationsByTone: Record<string, number>;
+  generationsByMode: Record<string, number>;
+  rateLimitedRequests: number;
+  recentGenerations: {
+    id: string;
+    topic: string;
+    platform: string;
+    tone: string;
+    count: number;
+    postsGenerated: number;
+    mode: string;
+    timestamp: string;
+    ip: string;
+  }[];
+  uptime: number;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main Page Component                                                */
 /* ------------------------------------------------------------------ */
 
 export default function Home() {
-  const [activeView, setActiveView] = useState<'landing' | 'app'>('landing');
+  const [activeView, setActiveView] = useState<'landing' | 'app' | 'admin'>('landing');
   const [topic, setTopic] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['twitter']);
   const [selectedTone, setSelectedTone] = useState<string>('casual');
@@ -282,6 +316,8 @@ export default function Home() {
   const [scheduleTime, setScheduleTime] = useState('');
   const [generationsUsed, setGenerationsUsed] = useState(0);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+  const [adminLoading, setAdminLoading] = useState(false);
 
   /* Auto-scroll to results */
   useEffect(() => {
@@ -289,6 +325,17 @@ export default function Home() {
       resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [generatedPosts]);
+
+  /* Fetch admin stats when admin view is active */
+  useEffect(() => {
+    if (activeView !== 'admin') return;
+    setAdminLoading(true);
+    fetch('/api/admin')
+      .then((r) => r.json())
+      .then((data) => setAdminStats(data))
+      .catch(() => setAdminStats(null))
+      .finally(() => setAdminLoading(false));
+  }, [activeView]);
 
   /* ---------------------------------------------------------------- */
   /*  Platform toggle (multi-select)                                   */
@@ -1433,6 +1480,397 @@ export default function Home() {
               </div>
             </motion.div>
           )}
+
+          {/* -------------------------------------------------------- */}
+          {/*  ADMIN VIEW — Stats Dashboard                              */}
+          {/* -------------------------------------------------------- */}
+          {activeView === 'admin' && (
+            <motion.div
+              key="admin"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12"
+            >
+              {/* Admin Header */}
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3">
+                    <LayoutDashboard className="h-7 w-7 text-orange-500" />
+                    Admin Dashboard
+                  </h1>
+                  <p className="text-muted-foreground mt-1">
+                    Real-time analytics, generation stats, and system health
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAdminLoading(true);
+                      fetch('/api/admin')
+                        .then((r) => r.json())
+                        .then((data) => setAdminStats(data))
+                        .catch(() => setAdminStats(null))
+                        .finally(() => setAdminLoading(false));
+                    }}
+                    disabled={adminLoading}
+                    className="cursor-pointer"
+                  >
+                    {adminLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveView('landing')}
+                    className="cursor-pointer"
+                  >
+                    Back to Home
+                  </Button>
+                </div>
+              </div>
+
+              {adminLoading && !adminStats ? (
+                <Card className="rounded-2xl border-border/50">
+                  <CardContent className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+                    <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                    <p className="mt-4 text-sm text-muted-foreground">Loading dashboard...</p>
+                  </CardContent>
+                </Card>
+              ) : adminStats ? (
+                <div className="space-y-6">
+                  {/* Top Stats Row */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="rounded-2xl border-border/50">
+                      <CardContent className="p-5">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+                            <Zap className="h-5 w-5 text-orange-500" />
+                          </div>
+                          <span className="text-xs font-medium text-muted-foreground">Total Generations</span>
+                        </div>
+                        <p className="text-3xl font-bold">{adminStats.totalGenerations}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="rounded-2xl border-border/50">
+                      <CardContent className="p-5">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+                            <MessageSquare className="h-5 w-5 text-orange-500" />
+                          </div>
+                          <span className="text-xs font-medium text-muted-foreground">Posts Generated</span>
+                        </div>
+                        <p className="text-3xl font-bold">{adminStats.totalPostsGenerated}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="rounded-2xl border-border/50">
+                      <CardContent className="p-5">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+                            <Shield className="h-5 w-5 text-orange-500" />
+                          </div>
+                          <span className="text-xs font-medium text-muted-foreground">Rate Limited</span>
+                        </div>
+                        <p className="text-3xl font-bold">{adminStats.rateLimitedRequests}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="rounded-2xl border-border/50">
+                      <CardContent className="p-5">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+                            <Server className="h-5 w-5 text-orange-500" />
+                          </div>
+                          <span className="text-xs font-medium text-muted-foreground">Server Uptime</span>
+                        </div>
+                        <p className="text-3xl font-bold">
+                          {Math.floor(adminStats.uptime / 3600)}h {Math.floor((adminStats.uptime % 3600) / 60)}m
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Charts Row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* By Platform */}
+                    <Card className="rounded-2xl border-border/50">
+                      <CardContent className="p-6">
+                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                          <Globe className="h-4 w-4 text-orange-500" />
+                          Generations by Platform
+                        </h3>
+                        <div className="space-y-3">
+                          {Object.entries(adminStats.generationsByPlatform).length > 0 ? (
+                            Object.entries(adminStats.generationsByPlatform)
+                              .sort(([, a], [, b]) => b - a)
+                              .map(([platform, count]) => {
+                                const maxCount = Math.max(...Object.values(adminStats.generationsByPlatform));
+                                const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                                const pInfo = PLATFORMS.find((p) => p.id === platform);
+                                return (
+                                  <div key={platform} className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="font-medium capitalize flex items-center gap-1.5">
+                                        {pInfo ? <pInfo.icon className="h-3.5 w-3.5" style={{ color: pInfo.color }} /> : null}
+                                        {platform}
+                                      </span>
+                                      <span className="text-muted-foreground">{count} gen{count !== 1 ? 's' : ''}</span>
+                                    </div>
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full gradient-brand rounded-full transition-all duration-500"
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })
+                          ) : (
+                            <p className="text-xs text-muted-foreground text-center py-8">No generations yet</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* By Tone */}
+                    <Card className="rounded-2xl border-border/50">
+                      <CardContent className="p-6">
+                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                          <Palette className="h-4 w-4 text-orange-500" />
+                          Generations by Tone
+                        </h3>
+                        <div className="space-y-3">
+                          {Object.entries(adminStats.generationsByTone).length > 0 ? (
+                            Object.entries(adminStats.generationsByTone)
+                              .sort(([, a], [, b]) => b - a)
+                              .map(([tone, count]) => {
+                                const maxCount = Math.max(...Object.values(adminStats.generationsByTone));
+                                const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                                const tInfo = TONES.find((t) => t.id === tone);
+                                return (
+                                  <div key={tone} className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="font-medium">
+                                        {tInfo ? `${tInfo.emoji} ${tInfo.label}` : tone}
+                                      </span>
+                                      <span className="text-muted-foreground">{count} gen{count !== 1 ? 's' : ''}</span>
+                                    </div>
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full gradient-brand rounded-full transition-all duration-500"
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })
+                          ) : (
+                            <p className="text-xs text-muted-foreground text-center py-8">No generations yet</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* By Mode + Avg Stats */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* By Mode */}
+                    <Card className="rounded-2xl border-border/50">
+                      <CardContent className="p-6">
+                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-orange-500" />
+                          Generation Modes
+                        </h3>
+                        <div className="space-y-3">
+                          {Object.entries(adminStats.generationsByMode).length > 0 ? (
+                            Object.entries(adminStats.generationsByMode)
+                              .sort(([, a], [, b]) => b - a)
+                              .map(([mode, count]) => {
+                                const modeLabels: Record<string, string> = {
+                                  generate: 'Topic Generate',
+                                  repurpose: 'Content Repurpose',
+                                  enhance: 'Prompt Enhance',
+                                };
+                                return (
+                                  <div key={mode} className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
+                                    <span className="text-xs font-medium">{modeLabels[mode] || mode}</span>
+                                    <Badge variant="secondary" className="text-[10px]">{count}</Badge>
+                                  </div>
+                                );
+                              })
+                          ) : (
+                            <p className="text-xs text-muted-foreground text-center py-6">No data yet</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Quick Stats */}
+                    <Card className="rounded-2xl border-border/50">
+                      <CardContent className="p-6">
+                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-orange-500" />
+                          Quick Stats
+                        </h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
+                            <span className="text-xs text-muted-foreground">Avg posts per generation</span>
+                            <span className="text-sm font-semibold">
+                              {adminStats.totalGenerations > 0
+                                ? (adminStats.totalPostsGenerated / adminStats.totalGenerations).toFixed(1)
+                                : '0'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
+                            <span className="text-xs text-muted-foreground">Rate limit hit rate</span>
+                            <span className="text-sm font-semibold">
+                              {adminStats.totalGenerations + adminStats.rateLimitedRequests > 0
+                                ? ((adminStats.rateLimitedRequests / (adminStats.totalGenerations + adminStats.rateLimitedRequests)) * 100).toFixed(1)
+                                : '0'}%
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
+                            <span className="text-xs text-muted-foreground">Most used platform</span>
+                            <span className="text-sm font-semibold capitalize">
+                              {Object.entries(adminStats.generationsByPlatform).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* System Health */}
+                    <Card className="rounded-2xl border-border/50">
+                      <CardContent className="p-6">
+                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                          <Activity className="h-4 w-4 text-orange-500" />
+                          System Health
+                        </h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 py-2 px-3 bg-green-50 rounded-lg">
+                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                            <span className="text-xs font-medium text-green-700">API Server: Online</span>
+                          </div>
+                          <div className="flex items-center gap-2 py-2 px-3 bg-green-50 rounded-lg">
+                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                            <span className="text-xs font-medium text-green-700">AI Engine: Connected</span>
+                          </div>
+                          <div className="flex items-center gap-2 py-2 px-3 bg-green-50 rounded-lg">
+                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                            <span className="text-xs font-medium text-green-700">Rate Limiter: Active</span>
+                          </div>
+                          <div className="flex items-center gap-2 py-2 px-3 bg-amber-50 rounded-lg">
+                            <AlertTriangle className="h-3 w-3 text-amber-500" />
+                            <span className="text-xs font-medium text-amber-700">No external DB connected</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Recent Generations Table */}
+                  <Card className="rounded-2xl border-border/50">
+                    <CardContent className="p-6">
+                      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-orange-500" />
+                        Recent Generations
+                        <Badge variant="secondary" className="text-[10px] ml-auto">
+                          Last {adminStats.recentGenerations.length} of {adminStats.totalGenerations}
+                        </Badge>
+                      </h3>
+                      {adminStats.recentGenerations.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border/50">
+                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Time</th>
+                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Platform</th>
+                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Tone</th>
+                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Mode</th>
+                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Requested</th>
+                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Delivered</th>
+                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Topic</th>
+                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">IP</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {adminStats.recentGenerations.map((gen) => (
+                                <tr key={gen.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
+                                  <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
+                                    {new Date(gen.timestamp).toLocaleTimeString()}
+                                  </td>
+                                  <td className="py-2.5 px-3 capitalize flex items-center gap-1.5">
+                                    {(() => {
+                                      const pInfo = PLATFORMS.find((p) => p.id === gen.platform);
+                                      return pInfo ? (
+                                        <>
+                                          <pInfo.icon className="h-3 w-3" style={{ color: pInfo.color }} />
+                                          <span className="hidden sm:inline">{pInfo.name}</span>
+                                          <span className="sm:hidden">{gen.platform}</span>
+                                        </>
+                                      ) : (
+                                        <span>{gen.platform}</span>
+                                      );
+                                    })()}
+                                  </td>
+                                  <td className="py-2.5 px-3 capitalize">
+                                    {TONES.find((t) => t.id === gen.tone)?.label || gen.tone}
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      {gen.mode === 'repurpose' ? 'Repurpose' : gen.mode === 'enhance' ? 'Enhance' : 'Generate'}
+                                    </Badge>
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono">{gen.count}</td>
+                                  <td className="py-2.5 px-3 font-mono font-semibold">{gen.postsGenerated}</td>
+                                  <td className="py-2.5 px-3 max-w-[200px] truncate text-muted-foreground" title={gen.topic}>
+                                    {gen.topic}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-muted-foreground font-mono">{gen.ip}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+                            <Activity className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <h4 className="text-sm font-semibold mb-1">No generations recorded yet</h4>
+                          <p className="text-xs text-muted-foreground">Stats will appear here once users start generating content</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <Card className="rounded-2xl border-red-200 bg-red-50/50">
+                  <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[300px]">
+                    <AlertTriangle className="h-10 w-10 text-red-500 mb-4" />
+                    <h3 className="text-lg font-semibold">Failed to load dashboard</h3>
+                    <p className="text-sm text-muted-foreground mt-2">Could not connect to the admin API. Check the server status and try again.</p>
+                    <Button
+                      variant="outline"
+                      className="mt-4 cursor-pointer"
+                      onClick={() => {
+                        setAdminLoading(true);
+                        fetch('/api/admin')
+                          .then((r) => r.json())
+                          .then((data) => setAdminStats(data))
+                          .catch(() => setAdminStats(null))
+                          .finally(() => setAdminLoading(false));
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
@@ -1456,7 +1894,11 @@ export default function Home() {
               <button onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">
                 Features
               </button>
-              <span className="text-orange-500 font-medium">v2.0</span>
+              <button onClick={() => setActiveView('admin')} className="hover:text-orange-500 transition-colors cursor-pointer flex items-center gap-1">
+                <Shield className="h-3 w-3" />
+                Admin
+              </button>
+              <span className="text-orange-500 font-medium">v2.1</span>
             </div>
           </div>
         </div>

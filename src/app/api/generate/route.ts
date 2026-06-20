@@ -380,8 +380,8 @@ function parsePosts(raw: string, platform: string): string[] {
     if (numbered.length > posts.length) posts = numbered;
   }
 
-  // Strategy 3: For short platforms (Twitter/TikTok), split by hashtag clusters
-  if (posts.length <= 1 && profile.maxChars <= 300) {
+  // Strategy 3: Split by hashtag clusters (works for short AND long platforms)
+  if (posts.length <= 1) {
     const hashSplit = raw
       .split(/\n\s*\n(?=#)/)
       .map((p) => p.trim())
@@ -389,18 +389,42 @@ function parsePosts(raw: string, platform: string): string[] {
     if (hashSplit.length > posts.length) posts = hashSplit;
   }
 
-  // Smart split: for short platforms, if a post is way over maxChars,
-  // it likely contains multiple posts merged. Split at hashtag lines or double newlines.
-  if (profile.maxChars <= 300) {
+  // Strategy 4: For long platforms, split by repeated "Post #N" labels
+  if (posts.length <= 1) {
+    const labelSplit = raw
+      .split(/(?:(?:^|\n)\s*(?:Post|POST)\s*#\d+[\s:\-]*)/i)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 50);
+    if (labelSplit.length > posts.length) posts = labelSplit;
+  }
+
+  // Smart split: for ANY platform, if a post is way over maxChars,
+  // it likely contains multiple posts merged. Split at natural boundaries.
+  {
     const expanded: string[] = [];
     for (const post of posts) {
-      if (post.length > profile.maxChars * 1.2) {
-        // Try splitting at double-newline followed by hashtag
-        let chunks = post.split(/\n\n(?=#)/).map((c) => c.trim()).filter((c) => c.length > 15);
-        // If that didn't work, try double newlines
+      if (post.length > profile.maxChars * 1.1) {
+        // Try splitting strategies for merged posts
+        let chunks: string[] = [];
+        
+        // Strategy A: Split at double-newline + hashtag (good for IG, YT)
+        chunks = post.split(/\n\n(?=#)/).map((c) => c.trim()).filter((c) => c.length > 15);
+        
+        // Strategy B: Split at double-newline + emoji/numbered header
         if (chunks.length <= 1) {
-          chunks = post.split(/\n\s*\n/).map((c) => c.trim()).filter((c) => c.length > 15);
+          chunks = post.split(/\n\s*\n(?=[\d#\-*])/).map((c) => c.trim()).filter((c) => c.length > 15);
         }
+        
+        // Strategy C: Split at "Post #N" labels within the merged block
+        if (chunks.length <= 1) {
+          chunks = post.split(/(?:^|\n)\s*Post\s*#\d+[\s:\-]*/i).map((c) => c.trim()).filter((c) => c.length > 50);
+        }
+        
+        // Strategy D: For very long posts, try double newline boundaries
+        if (chunks.length <= 1 && post.length > profile.maxChars * 1.5) {
+          chunks = post.split(/\n\s*\n/).map((c) => c.trim()).filter((c) => c.length > 100);
+        }
+        
         if (chunks.length > 1) {
           expanded.push(...chunks);
         } else {
@@ -460,6 +484,12 @@ export async function POST(request: NextRequest) {
     // Rate limiting by IP
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     if (isRateLimited(ip)) {
+      // Log rate limit hit to admin stats (fire-and-forget)
+      fetch("http://localhost:3000/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "rate_limited", value: 1 }),
+      }).catch(() => {});
       return NextResponse.json(
         { error: "Rate limit reached. Please wait a moment before generating more posts." },
         { status: 429 }
@@ -502,6 +532,21 @@ export async function POST(request: NextRequest) {
     if (posts.length === 0) {
       return NextResponse.json({ error: "Failed to parse generated content. Please try again." }, { status: 500 });
     }
+
+    // Log generation to admin stats (fire-and-forget, don't block the response)
+    fetch("http://localhost:3000/api/admin", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        topic: topic.trim(),
+        platform,
+        tone,
+        count: postCount,
+        postsGenerated: posts.length,
+        mode: mode || "generate",
+        ip,
+      }),
+    }).catch(() => { /* silently ignore stats logging failures */ });
 
     return NextResponse.json({
       success: true,
