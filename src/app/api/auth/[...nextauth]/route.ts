@@ -7,28 +7,33 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db) as NextAuthOptions["adapter"],
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     }),
   ],
   callbacks: {
     async session({ session, user }) {
       if (session.user) {
+        (session.user as Record<string, unknown>).id = (user as Record<string, unknown>).id;
         (session.user as Record<string, unknown>).role = (user as Record<string, unknown>).role;
+        (session.user as Record<string, unknown>).plan = (user as Record<string, unknown>).plan;
+        (session.user as Record<string, unknown>).credits = (user as Record<string, unknown>).credits;
       }
       return session;
     },
     async signIn({ user, account }) {
-      // Auto-assign admin role for demo (first user becomes admin)
       if (account?.provider === "google") {
-        const existingUser = await db.user.findUnique({ where: { id: user.id! } });
-        if (!existingUser) {
-          // First user to sign up becomes admin
-          const userCount = await db.user.count();
-          await db.user.update({
-            where: { id: user.id! },
-            data: { role: userCount === 0 ? "admin" : "user" },
-          });
+        try {
+          const existingUser = await db.user.findUnique({ where: { id: user.id! } });
+          if (!existingUser) {
+            const userCount = await db.user.count();
+            await db.user.update({
+              where: { id: user.id! },
+              data: { role: userCount === 0 ? "admin" : "user" },
+            });
+          }
+        } catch (err) {
+          console.error("signIn callback error:", err);
         }
       }
       return true;
@@ -40,7 +45,8 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "database",
   },
-  secret: process.env.NEXTAUTH_SECRET || "postpilot-dev-secret-change-in-production",
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV !== "production",
 };
 
 const handler = NextAuth(authOptions);

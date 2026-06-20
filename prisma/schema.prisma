@@ -31,12 +31,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String?
-  access_token      String?
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
   expires_at        Int?
   token_type        String?
-  scope             String?
-  id_token          String?
+  scope             String? @db.Text
+  id_token          String? @db.Text
   session_state     String?
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -70,7 +70,7 @@ model Generation {
   postCount       Int      @default(1)
   postsGenerated  Int      @default(0)
   mode            String   @default("generate") // "generate" | "repurpose" | "enhance"
-  postsJson       String?  // store generated posts as JSON
+  postsJson       String?  @db.Text // store generated posts as JSON
   ip              String?
   createdAt       DateTime @default(now())
 

@@ -2,20 +2,50 @@
 
 import { signIn, getProviders } from 'next-auth/react';
 import { motion } from 'framer-motion';
-import { Rocket, ArrowRight, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Rocket, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
+function LoginContent() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<Record<string, { id: string; name: string; }>>({});
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     getProviders().then(setProviders);
-  }, []);
 
-  const handleGoogleSignIn = () => {
+    // Check for OAuth errors in URL
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'OAuthAccountNotLinked') {
+      setError('This email is already linked to another account.');
+    } else if (errorParam === 'AccessDenied') {
+      setError('Access was denied. Your email may not be authorized as a test user in Google Console.');
+    } else if (errorParam === 'Configuration') {
+      setError('Sign-in configuration error. Please try again later.');
+    } else if (errorParam) {
+      setError(`Sign-in error: ${errorParam}`);
+    }
+  }, [searchParams]);
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
     setLoading(true);
-    signIn('google', { callbackUrl: '/?view=app' });
+
+    try {
+      await signIn('google', {
+        callbackUrl: '/?view=app',
+        redirect: true,
+      });
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
+      setLoading(false);
+    }
+
+    // Fallback: if signIn doesn't redirect after 10s, show error
+    setTimeout(() => {
+      setLoading(false);
+    }, 10000);
   };
 
   return (
@@ -59,14 +89,26 @@ export default function LoginPage() {
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-xl font-semibold text-white">Sign in to continue</h2>
-              <p className="text-zinc-400 text-sm mt-1">Get 50 free AI generations per month</p>
+              <p className="text-zinc-400 text-sm mt-1">Get 20 free AI generations to start</p>
             </div>
+
+            {/* Error message */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl"
+              >
+                <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-red-300">{error}</p>
+              </motion.div>
+            )}
 
             {/* Google Sign In Button */}
             <button
               onClick={handleGoogleSignIn}
               disabled={loading || !providers.google}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white hover:bg-zinc-100 disabled:bg-zinc-700 text-zinc-900 font-medium rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-white/5 group"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white hover:bg-zinc-100 disabled:bg-zinc-700 text-zinc-900 font-medium rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-white/5 group cursor-pointer disabled:cursor-not-allowed"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -91,7 +133,7 @@ export default function LoginPage() {
             {/* Features list */}
             <div className="space-y-3">
               {[
-                '50 AI generations per month',
+                '20 free AI generations',
                 '6 platforms & 6 tones',
                 'Brand voice training',
                 'Content repurposing',
@@ -111,5 +153,17 @@ export default function LoginPage() {
         </p>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
