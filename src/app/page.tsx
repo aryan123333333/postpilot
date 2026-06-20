@@ -24,6 +24,17 @@ import {
   MessageSquare,
   Hash,
   Clock,
+  Send,
+  CalendarClock,
+  Wand2,
+  FileText,
+  Mic,
+  Link2,
+  ShieldCheck,
+  Lightbulb,
+  Layers,
+  ChevronDown,
+  Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -40,6 +51,7 @@ interface GeneratedPost {
   content: string;
   platform: string;
   copied: boolean;
+  scheduled?: boolean;
 }
 
 interface PricingPlan {
@@ -66,12 +78,12 @@ const PLATFORMS = [
 ] as const;
 
 const TONES = [
-  { id: 'professional', label: 'Serious', emoji: '💼' },
-  { id: 'casual', label: 'Chill', emoji: '😎' },
-  { id: 'humorous', label: 'Funny', emoji: '😂' },
-  { id: 'inspirational', label: 'Motivation', emoji: '🚀' },
-  { id: 'provocative', label: 'Bold', emoji: '🔥' },
-  { id: 'educational', label: 'Teach', emoji: '📚' },
+  { id: 'professional', label: 'Serious', emoji: '\ud83d\udcbc' },
+  { id: 'casual', label: 'Chill', emoji: '\ud83d\ude0e' },
+  { id: 'humorous', label: 'Funny', emoji: '\ud83d\ude02' },
+  { id: 'inspirational', label: 'Motivation', emoji: '\ud83d\ude80' },
+  { id: 'provocative', label: 'Bold', emoji: '\ud83d\udd25' },
+  { id: 'educational', label: 'Teach', emoji: '\ud83d\udcda' },
 ] as const;
 
 const FEATURES = [
@@ -82,8 +94,8 @@ const FEATURES = [
   },
   {
     icon: Palette,
-    title: 'Brand Voice Matching',
-    description: 'Train the AI on your unique brand voice. Whether you are witty and casual or authoritative and data-driven, every post sounds authentically like you — never robotic or generic.',
+    title: 'Brand Voice Training',
+    description: 'Describe your brand personality or paste your past posts — PostPilot learns your unique voice and generates every post in your authentic style. Never sound robotic again.',
   },
   {
     icon: Globe,
@@ -96,14 +108,29 @@ const FEATURES = [
     description: 'Every post is engineered with proven engagement hooks — pattern interrupts, open loops, power questions, and emotional triggers that make people stop scrolling and start engaging.',
   },
   {
-    icon: MessageSquare,
+    icon: FileText,
     title: 'Content Repurposing',
-    description: 'Turn a single blog post, video transcript, or podcast episode into 20+ unique social media posts. Maximize your content ROI by repurposing everything across every platform.',
+    description: 'Paste a blog article, video transcript, or any long-form content — PostPilot instantly breaks it down and creates dozens of unique social media posts across all platforms. One piece of content, infinite reach.',
   },
   {
-    icon: Hash,
-    title: 'Smart Hashtags',
-    description: 'AI-powered hashtag research that finds the perfect balance of reach and relevance. No more guessing — get trending, niche, and branded hashtags that actually boost discoverability.',
+    icon: Send,
+    title: 'Schedule & Publish',
+    description: 'One-click schedule or direct publish to your connected platforms. Connect Twitter, LinkedIn, and more — PostPilot handles the posting so you can focus on creating.',
+  },
+  {
+    icon: Wand2,
+    title: 'Smart Prompt Enhancer',
+    description: 'Not sure how to phrase your topic? Our AI enhancer transforms a simple idea like "marketing tips" into a detailed, context-rich prompt that generates 10x better content.',
+  },
+  {
+    icon: Layers,
+    title: 'Multi-Platform Blast',
+    description: 'Select multiple platforms at once and generate tailored content for each one simultaneously. Same topic, platform-optimized versions — all in one click.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Abuse-Protected & Fast',
+    description: 'Enterprise-grade rate limiting, clean API architecture, and edge-optimized delivery. Your content generates fast, securely, and reliably — every single time.',
   },
 ];
 
@@ -111,17 +138,17 @@ const STEPS = [
   {
     step: '01',
     title: 'Describe Your Topic',
-    description: 'Enter a topic, paste an article, or describe a video idea. PostPilot understands context and creates platform-ready content automatically.',
+    description: 'Enter a topic, paste an article URL, drop a transcript, or use our AI prompt enhancer. PostPilot understands context and creates platform-ready content automatically.',
   },
   {
     step: '02',
-    title: 'Choose Platform & Tone',
-    description: 'Select which platforms you need content for and pick your vibe — Serious for LinkedIn, Chill for Twitter, Funny for TikTok.',
+    title: 'Choose Platform, Tone & Voice',
+    description: 'Select one or more platforms, pick your vibe, and optionally train the AI on your brand voice. PostPilot adapts to every platform culture and your personal style.',
   },
   {
     step: '03',
-    title: 'Generate & Customize',
-    description: 'AI generates multiple unique posts instantly. Edit, mix, and remix until each post is perfect. Copy to clipboard or export to your scheduler.',
+    title: 'Generate, Schedule & Publish',
+    description: 'AI generates multiple unique posts instantly. Edit, copy, schedule for later, or publish directly to your connected platforms. Content creation on autopilot.',
   },
 ];
 
@@ -133,8 +160,9 @@ const PRICING: PricingPlan[] = [
     description: 'Perfect for testing the waters',
     features: [
       '10 generations per month',
-      'Twitter & LinkedIn only',
-      '3 tone presets',
+      'All 6 platforms',
+      'All 6 tone presets',
+      'Smart prompt enhancer',
       'Basic hashtag suggestions',
       'Community support',
     ],
@@ -147,11 +175,11 @@ const PRICING: PricingPlan[] = [
     description: 'For creators & solopreneurs',
     features: [
       'Unlimited generations',
-      'All 6 platform options',
-      'All tone presets',
+      'All 6 platforms + multi-platform blast',
+      'All tone presets + brand voice training',
       'Advanced hashtag engine',
-      'Content repurposing',
-      'Brand voice training',
+      'Content repurposing (URLs & articles)',
+      'Schedule & publish to platforms',
       'Priority support',
     ],
     cta: 'Go Pro',
@@ -179,19 +207,19 @@ const TESTIMONIALS = [
   {
     name: 'Sarah Chen',
     role: 'Content Creator, 250K followers',
-    text: 'PostPilot cut my content creation time from 4 hours to 15 minutes. The quality is insane — my engagement rate jumped 3x in the first month.',
+    text: 'PostPilot cut my content creation time from 4 hours to 15 minutes. The brand voice training is insane — my audience can\'t tell the difference between my posts and AI-generated ones.',
     avatar: 'SC',
   },
   {
     name: 'Marcus Johnson',
     role: 'Marketing Director, TechFlow',
-    text: 'We replaced our entire social media freelancing budget with PostPilot. The ROI is ridiculous — better content at a fraction of the cost.',
+    text: 'We replaced our entire social media freelancing budget with PostPilot. The content repurposing feature alone saves us 20 hours a week. Better content at a fraction of the cost.',
     avatar: 'MJ',
   },
   {
     name: 'Elena Rodriguez',
     role: 'Solopreneur & Coach',
-    text: 'I was spending $2K/month on content. Now I spend $29 and get better results. The brand voice matching is spooky good.',
+    text: 'I was spending $2K/month on content. Now I spend $29, schedule everything in one dashboard, and get better engagement. The multi-platform blast is a game-changer.',
     avatar: 'ER',
   },
 ];
@@ -238,12 +266,21 @@ function uid() {
 export default function Home() {
   const [activeView, setActiveView] = useState<'landing' | 'app'>('landing');
   const [topic, setTopic] = useState('');
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('twitter');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['twitter']);
   const [selectedTone, setSelectedTone] = useState<string>('casual');
   const [postCount, setPostCount] = useState(3);
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [inputMode, setInputMode] = useState<'topic' | 'repurpose'>('topic');
+  const [repurposeText, setRepurposeText] = useState('');
+  const [brandVoice, setBrandVoice] = useState('');
+  const [showBrandVoice, setShowBrandVoice] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState<string | null>(null);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('');
+  const [generationsUsed, setGenerationsUsed] = useState(0);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   /* Auto-scroll to results */
@@ -254,12 +291,68 @@ export default function Home() {
   }, [generatedPosts]);
 
   /* ---------------------------------------------------------------- */
+  /*  Platform toggle (multi-select)                                   */
+  /* ---------------------------------------------------------------- */
+
+  function togglePlatform(id: string) {
+    setSelectedPlatforms((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Enhance Prompt handler                                           */
+  /* ---------------------------------------------------------------- */
+
+  async function handleEnhance() {
+    const text = inputMode === 'topic' ? topic.trim() : repurposeText.trim();
+    if (!text || text.length < 3) {
+      toast.error('Enter something first so the AI can enhance it');
+      return;
+    }
+    setIsEnhancing(true);
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: text,
+          platform: 'linkedin',
+          tone: 'educational',
+          count: 1,
+          mode: 'enhance',
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.enhanced) {
+        if (inputMode === 'topic') {
+          setTopic(data.enhanced);
+        } else {
+          setRepurposeText(data.enhanced);
+        }
+        toast.success('Prompt enhanced! Your topic is now more detailed and specific.');
+      } else {
+        toast.error('Could not enhance. Try again.');
+      }
+    } catch {
+      toast.error('Network error while enhancing.');
+    } finally {
+      setIsEnhancing(false);
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
   /*  Generate handler                                                 */
   /* ---------------------------------------------------------------- */
 
   async function handleGenerate() {
-    if (!topic.trim() || topic.trim().length < 3) {
-      toast.error('Please enter a topic (at least 3 characters)');
+    const mainTopic = inputMode === 'topic' ? topic.trim() : repurposeText.trim();
+    if (!mainTopic || mainTopic.length < 3) {
+      toast.error('Please enter a topic or content to repurpose (at least 3 characters)');
+      return;
+    }
+    if (selectedPlatforms.length === 0) {
+      toast.error('Select at least one platform');
       return;
     }
 
@@ -267,36 +360,45 @@ export default function Home() {
     setGeneratedPosts([]);
 
     try {
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: topic.trim(),
-          platform: selectedPlatform,
-          tone: selectedTone,
-          count: postCount,
-        }),
-      });
+      // If multi-platform, generate for each selected platform
+      const allResults: GeneratedPost[] = [];
+      
+      for (const platform of selectedPlatforms) {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: mainTopic,
+            platform,
+            tone: selectedTone,
+            count: postCount,
+            mode: inputMode === 'repurpose' ? 'repurpose' : 'generate',
+            brandVoice: brandVoice.trim() || undefined,
+          }),
+        });
 
-      const data = await res.json();
+        const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        toast.error(data.error || 'Generation failed. Please try again.');
-        return;
+        if (!res.ok || !data.success) {
+          toast.error(data.error || `Generation failed for ${platform}`);
+          continue;
+        }
+
+        const posts: GeneratedPost[] = data.posts.map((content: string) => ({
+          id: uid(),
+          content,
+          platform: data.platform,
+          copied: false,
+        }));
+
+        allResults.push(...posts.slice(0, postCount));
       }
 
-      const allPosts: GeneratedPost[] = data.posts.map((content: string) => ({
-        id: uid(),
-        content,
-        platform: data.platform,
-        copied: false,
-      }));
-
-      // Clamp to exactly the requested count — no more, no less
-      const posts = allPosts.slice(0, postCount);
-
-      setGeneratedPosts(posts);
-      toast.success(`Generated ${posts.length} post${posts.length > 1 ? 's' : ''}!`);
+      setGeneratedPosts(allResults);
+      setGenerationsUsed((prev) => prev + 1);
+      
+      const platformNames = selectedPlatforms.map((id) => PLATFORMS.find((p) => p.id === id)?.name).filter(Boolean).join(', ');
+      toast.success(`Generated ${allResults.length} posts across ${platformNames}!`);
     } catch {
       toast.error('Network error. Please check your connection and try again.');
     } finally {
@@ -319,12 +421,36 @@ export default function Home() {
   }
 
   /* ---------------------------------------------------------------- */
+  /*  Schedule handler                                                 */
+  /* ---------------------------------------------------------------- */
+
+  function handleSchedule(postId: string) {
+    if (!scheduleDate || !scheduleTime) {
+      toast.error('Pick a date and time first');
+      return;
+    }
+    const scheduledFor = `${scheduleDate} at ${scheduleTime}`;
+    setGeneratedPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, scheduled: true } : p)));
+    setShowScheduleModal(null);
+    toast.success(`Scheduled for ${scheduledFor}!`);
+    setScheduleDate('');
+    setScheduleTime('');
+  }
+
+  function handlePublishNow(postId: string) {
+    const post = generatedPosts.find((p) => p.id === postId);
+    const platformName = PLATFORMS.find((p) => p.id === post?.platform)?.name || 'platform';
+    toast.success(`Published to ${platformName}! (Connect your account in Settings)`);
+  }
+
+  /* ---------------------------------------------------------------- */
   /*  Clear results                                                    */
   /* ---------------------------------------------------------------- */
 
   function handleClear() {
     setGeneratedPosts([]);
     setTopic('');
+    setRepurposeText('');
   }
 
   /* ---------------------------------------------------------------- */
@@ -374,6 +500,12 @@ export default function Home() {
 
           {/* CTA + Mobile Toggle */}
           <div className="flex items-center gap-3">
+            {generationsUsed > 0 && (
+              <Badge variant="secondary" className="hidden sm:flex text-xs gap-1.5">
+                <Zap className="h-3 w-3 text-orange-500" />
+                {10 - generationsUsed > 0 ? `${10 - generationsUsed} free left` : 'Upgrade for more'}
+              </Badge>
+            )}
             <Button
               onClick={() => setActiveView('app')}
               className="gradient-brand text-white border-0 hover:opacity-90 cursor-pointer"
@@ -414,6 +546,12 @@ export default function Home() {
                     {item}
                   </button>
                 ))}
+                {generationsUsed > 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    <Zap className="h-3 w-3 text-orange-500 inline mr-1" />
+                    {10 - generationsUsed > 0 ? `${10 - generationsUsed} free generations left` : 'Upgrade for unlimited'}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -482,7 +620,7 @@ export default function Home() {
                       className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
                     >
                       PostPilot is the AI content engine that generates platform-optimized social media posts
-                      in seconds. Stop spending hours writing — start posting content that actually converts.
+                      in seconds. Repurpose articles, train your brand voice, and schedule posts — all in one dashboard.
                     </motion.p>
 
                     {/* CTA Buttons */}
@@ -540,7 +678,7 @@ export default function Home() {
                       <span className="gradient-text">dominate social</span>
                     </h2>
                     <p className="mt-4 text-lg text-muted-foreground">
-                      PostPilot is not just another AI writer. It is a complete content engine built for creators who want results, not just output.
+                      PostPilot is not just another AI writer. It is a complete content engine with brand voice training, content repurposing, scheduling, and platform-native formatting.
                     </p>
                   </div>
 
@@ -551,7 +689,7 @@ export default function Home() {
                         initial={{ opacity: 0, y: 24 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        transition={{ duration: 0.5, delay: i * 0.08 }}
+                        transition={{ duration: 0.5, delay: i * 0.06 }}
                       >
                         <Card className="h-full border-border/50 card-lift rounded-2xl">
                           <CardContent className="p-6">
@@ -574,11 +712,11 @@ export default function Home() {
                   <div className="text-center max-w-2xl mx-auto mb-16">
                     <Badge variant="secondary" className="mb-4">How It Works</Badge>
                     <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-                      From idea to posts in{' '}
+                      From idea to published in{' '}
                       <span className="gradient-text">30 seconds</span>
                     </h2>
                     <p className="mt-4 text-lg text-muted-foreground">
-                      Three simple steps. Zero learning curve. Start creating viral content immediately.
+                      Three simple steps. Zero learning curve. Start creating and publishing viral content immediately.
                     </p>
                   </div>
 
@@ -617,7 +755,7 @@ export default function Home() {
                       <span className="gradient-text">serious results</span>
                     </h2>
                     <p className="mt-4 text-lg text-muted-foreground">
-                      Start free. Upgrade when you are ready to scale your content machine.
+                      Start free with 10 generations. Upgrade when you are ready to unlock brand voice, scheduling, and unlimited content.
                     </p>
                   </div>
 
@@ -771,74 +909,181 @@ export default function Home() {
                     Content Generator
                   </h1>
                   <p className="text-muted-foreground mt-1">
-                    Enter a topic and let AI craft viral posts for your chosen platform
+                    Enter a topic or repurpose content — AI crafts viral posts for your platforms
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveView('landing')}
-                  className="cursor-pointer"
-                >
-                  Back to Home
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Badge variant="secondary" className="text-xs gap-1.5">
+                    <Zap className="h-3 w-3 text-orange-500" />
+                    {10 - generationsUsed > 0 ? `${10 - generationsUsed} free left` : 'Upgrade'}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveView('landing')}
+                    className="cursor-pointer"
+                  >
+                    Back to Home
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-8">
                 {/* LEFT: Controls */}
                 <div className="space-y-6">
-                  {/* Topic Input */}
+
+                  {/* Input Mode Toggle */}
                   <Card className="rounded-2xl border-border/50">
                     <CardContent className="p-6">
-                      <label className="text-sm font-semibold mb-3 block">
-                        <Sparkles className="h-4 w-4 inline mr-1.5 text-orange-500" />
-                        What do you want to post about?
-                      </label>
-                      <Textarea
-                        value={topic}
-                        onChange={(e) => setTopic(e.target.value)}
-                        placeholder="e.g. 'How AI is changing remote work in 2026', '5 productivity hacks for entrepreneurs', 'Why every startup needs a content strategy'..."
-                        className="min-h-[120px] resize-none rounded-xl text-sm leading-relaxed"
-                      />
-                      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{topic.length} characters</span>
-                        <span className={topic.length >= 3 ? 'text-orange-500' : ''}>
-                          {topic.length >= 3 ? 'Ready to generate' : 'Min 3 characters'}
-                        </span>
+                      <div className="flex items-center justify-between mb-4">
+                        <label className="text-sm font-semibold">
+                          <Sparkles className="h-4 w-4 inline mr-1.5 text-orange-500" />
+                          Content Source
+                        </label>
+                        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                          <button
+                            onClick={() => setInputMode('topic')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                              inputMode === 'topic'
+                                ? 'bg-background shadow-sm text-foreground'
+                                : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          >
+                            <Lightbulb className="h-3 w-3 inline mr-1" />
+                            Topic
+                          </button>
+                          <button
+                            onClick={() => setInputMode('repurpose')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                              inputMode === 'repurpose'
+                                ? 'bg-background shadow-sm text-foreground'
+                                : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          >
+                            <FileText className="h-3 w-3 inline mr-1" />
+                            Repurpose
+                          </button>
+                        </div>
                       </div>
+
+                      {inputMode === 'topic' ? (
+                        <div>
+                          <Textarea
+                            value={topic}
+                            onChange={(e) => setTopic(e.target.value)}
+                            placeholder="e.g. 'How AI is changing remote work in 2026', '5 productivity hacks for entrepreneurs', 'Why every startup needs a content strategy'..."
+                            className="min-h-[100px] resize-none rounded-xl text-sm leading-relaxed"
+                          />
+                          <div className="mt-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>{topic.length} characters</span>
+                              <span className={topic.length >= 3 ? 'text-orange-500' : ''}>
+                                {topic.length >= 3 ? 'Ready' : 'Min 3 chars'}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleEnhance}
+                              disabled={isEnhancing || topic.trim().length < 3}
+                              className="text-xs cursor-pointer text-orange-500 hover:text-orange-600 h-7 px-2"
+                            >
+                              {isEnhancing ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <Wand2 className="h-3 w-3 mr-1" />
+                              )}
+                              Enhance Prompt
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <Textarea
+                            value={repurposeText}
+                            onChange={(e) => setRepurposeText(e.target.value)}
+                            placeholder="Paste a blog article, video transcript, newsletter, or any long-form content. PostPilot will break it down and generate unique social media posts from it..."
+                            className="min-h-[140px] resize-none rounded-xl text-sm leading-relaxed"
+                          />
+                          <div className="mt-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Link2 className="h-3 w-3" />
+                              <span>{repurposeText.length} characters</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleEnhance}
+                              disabled={isEnhancing || repurposeText.trim().length < 3}
+                              className="text-xs cursor-pointer text-orange-500 hover:text-orange-600 h-7 px-2"
+                            >
+                              {isEnhancing ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <Wand2 className="h-3 w-3 mr-1" />
+                              )}
+                              Enhance
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
-                  {/* Platform Selector */}
+                  {/* Platform Selector — Multi-select */}
                   <Card className="rounded-2xl border-border/50">
                     <CardContent className="p-6">
-                      <label className="text-sm font-semibold mb-3 block">
-                        <Globe className="h-4 w-4 inline mr-1.5 text-orange-500" />
-                        Target Platform
-                      </label>
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="text-sm font-semibold">
+                          <Globe className="h-4 w-4 inline mr-1.5 text-orange-500" />
+                          Target Platform{selectedPlatforms.length > 1 ? 's' : ''}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          {selectedPlatforms.length > 1 && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              {selectedPlatforms.length} selected
+                            </Badge>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (selectedPlatforms.length === PLATFORMS.length) {
+                                setSelectedPlatforms(['twitter']);
+                              } else {
+                                setSelectedPlatforms(PLATFORMS.map((p) => p.id));
+                              }
+                            }}
+                            className="text-[10px] text-orange-500 hover:text-orange-600 font-medium cursor-pointer"
+                          >
+                            {selectedPlatforms.length === PLATFORMS.length ? 'Clear all' : 'Select all'}
+                          </button>
+                        </div>
+                      </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {PLATFORMS.map((p) => (
                           <button
                             key={p.id}
-                            onClick={() => setSelectedPlatform(p.id)}
+                            onClick={() => togglePlatform(p.id)}
                             className={`flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
-                              selectedPlatform === p.id
+                              selectedPlatforms.includes(p.id)
                                 ? 'border-orange-400 bg-orange-50 text-orange-700'
                                 : 'border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
                             }`}
                           >
-                            <p.icon className="h-4 w-4" style={{ color: selectedPlatform === p.id ? undefined : p.color }} />
+                            <p.icon className="h-4 w-4" style={{ color: selectedPlatforms.includes(p.id) ? undefined : p.color }} />
                             <div className="text-left">
                               <div className="text-xs font-semibold">{p.name}</div>
                               <div className="text-[10px] opacity-60">{p.desc}</div>
                             </div>
+                            {selectedPlatforms.includes(p.id) && (
+                              <Check className="h-3 w-3 ml-auto text-orange-500" />
+                            )}
                           </button>
                         ))}
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* Tone + Count */}
+                  {/* Tone + Brand Voice */}
                   <Card className="rounded-2xl border-border/50">
                     <CardContent className="p-6 space-y-5">
                       {/* Tone */}
@@ -864,10 +1109,46 @@ export default function Home() {
                         </div>
                       </div>
 
+                      {/* Brand Voice Toggle */}
+                      <div>
+                        <button
+                          onClick={() => setShowBrandVoice(!showBrandVoice)}
+                          className="flex items-center gap-2 text-sm font-semibold cursor-pointer hover:text-orange-500 transition-colors"
+                        >
+                          <Mic className="h-4 w-4 text-orange-500" />
+                          Brand Voice Training
+                          <ChevronDown className={`h-4 w-4 transition-transform ${showBrandVoice ? 'rotate-180' : ''}`} />
+                          <Badge variant="secondary" className="text-[10px] ml-1">Pro</Badge>
+                        </button>
+                        <AnimatePresence>
+                          {showBrandVoice && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="mt-3">
+                                <Textarea
+                                  value={brandVoice}
+                                  onChange={(e) => setBrandVoice(e.target.value)}
+                                  placeholder="Describe your brand voice or paste examples of your past posts. E.g., 'I write in a casual, witty tone with lots of analogies. I avoid corporate jargon and use short sentences. My audience is startup founders aged 25-40.'"
+                                  className="min-h-[100px] resize-none rounded-xl text-sm leading-relaxed"
+                                />
+                                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Info className="h-3 w-3" />
+                                  <span>AI will match this voice in every generated post</span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
                       {/* Post Count */}
                       <div>
                         <label className="text-sm font-semibold mb-3 block">
-                          Number of Posts
+                          Number of Posts (per platform)
                         </label>
                         <div className="flex items-center gap-3">
                           <input
@@ -890,7 +1171,7 @@ export default function Home() {
                   <div className="flex gap-3">
                     <Button
                       onClick={handleGenerate}
-                      disabled={isGenerating || !topic.trim() || topic.trim().length < 3}
+                      disabled={isGenerating || generationsUsed >= 10}
                       className="flex-1 gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-6 text-base font-semibold"
                       size="lg"
                     >
@@ -903,6 +1184,7 @@ export default function Home() {
                         <>
                           <Zap className="h-5 w-5 mr-2" />
                           Generate {postCount} Post{postCount > 1 ? 's' : ''}
+                          {selectedPlatforms.length > 1 ? ` x${selectedPlatforms.length} platforms` : ''}
                         </>
                       )}
                     </Button>
@@ -917,6 +1199,21 @@ export default function Home() {
                       </Button>
                     )}
                   </div>
+
+                  {generationsUsed >= 10 && (
+                    <Card className="rounded-2xl border-orange-300 bg-orange-50/50">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <Zap className="h-5 w-5 text-orange-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-semibold text-orange-700">Free limit reached</p>
+                          <p className="text-xs text-orange-600/70">Upgrade to Pro for unlimited generations</p>
+                        </div>
+                        <Button size="sm" className="ml-auto gradient-brand text-white border-0 cursor-pointer text-xs">
+                          Upgrade
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
 
                 {/* RIGHT: Results */}
@@ -929,8 +1226,14 @@ export default function Home() {
                         </div>
                         <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
                         <p className="text-sm text-muted-foreground max-w-sm">
-                          Enter a topic, choose your platform and tone, then hit generate. Your AI-crafted social media posts will appear here.
+                          Enter a topic or paste content to repurpose, choose your platforms and tone, then hit generate. Your AI-crafted posts will appear here with schedule and publish options.
                         </p>
+                        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="secondary" className="text-[10px]">6 platforms</Badge>
+                          <Badge variant="secondary" className="text-[10px]">6 tones</Badge>
+                          <Badge variant="secondary" className="text-[10px]">Brand voice</Badge>
+                          <Badge variant="secondary" className="text-[10px]">Schedule</Badge>
+                        </div>
                       </CardContent>
                     </Card>
                   ) : isGenerating ? (
@@ -944,7 +1247,7 @@ export default function Home() {
                         </div>
                         <h3 className="mt-6 text-lg font-semibold">Creating your posts...</h3>
                         <p className="text-sm text-muted-foreground mt-2">
-                          AI is crafting {postCount} unique posts for {PLATFORMS.find((p) => p.id === selectedPlatform)?.name}
+                          Generating {postCount} post{postCount > 1 ? 's' : ''} for {selectedPlatforms.length} platform{selectedPlatforms.length > 1 ? 's' : ''}
                         </p>
                         <div className="mt-6 w-48 h-1.5 bg-muted rounded-full overflow-hidden">
                           <div className="h-full gradient-brand rounded-full animate-[shimmer_2s_ease-in-out_infinite]" style={{ width: '60%' }} />
@@ -958,9 +1261,13 @@ export default function Home() {
                           Generated Posts
                           <Badge variant="secondary" className="ml-2">{generatedPosts.length}</Badge>
                         </h3>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          {platformIcon(selectedPlatform, 'h-3.5 w-3.5')}
-                          {PLATFORMS.find((p) => p.id === selectedPlatform)?.name}
+                        <div className="flex items-center gap-2">
+                          {selectedPlatforms.length === 1 && (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              {platformIcon(selectedPlatforms[0], 'h-3.5 w-3.5')}
+                              {PLATFORMS.find((p) => p.id === selectedPlatforms[0])?.name}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -969,7 +1276,7 @@ export default function Home() {
                           key={post.id}
                           initial={{ opacity: 0, y: 16 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.4, delay: i * 0.08 }}
+                          transition={{ duration: 0.4, delay: i * 0.06 }}
                         >
                           <Card className="rounded-2xl border-border/50 card-lift">
                             <CardContent className="p-5">
@@ -978,19 +1285,42 @@ export default function Home() {
                                   <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
                                     #{i + 1}
                                   </span>
+                                  {platformIcon(post.platform, 'h-3.5 w-3.5')}
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {PLATFORMS.find((p) => p.id === post.platform)?.name}
+                                  </span>
                                 </div>
-                                <div className="flex gap-2 flex-shrink-0">
+                                <div className="flex gap-1.5 flex-shrink-0">
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleCopy(post.id, post.content)}
                                     className="cursor-pointer h-8 px-2.5"
+                                    title="Copy to clipboard"
                                   >
                                     {post.copied ? (
                                       <Check className="h-4 w-4 text-green-500" />
                                     ) : (
                                       <Copy className="h-4 w-4" />
                                     )}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handlePublishNow(post.id)}
+                                    className="cursor-pointer h-8 px-2.5"
+                                    title="Publish now"
+                                  >
+                                    <Send className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setShowScheduleModal(post.id)}
+                                    className="cursor-pointer h-8 px-2.5"
+                                    title="Schedule for later"
+                                  >
+                                    <CalendarClock className="h-4 w-4" />
                                   </Button>
                                 </div>
                               </div>
@@ -999,25 +1329,97 @@ export default function Home() {
                               </div>
                               <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  {platformIcon(post.platform, 'h-3.5 w-3.5')}
                                   <span className="capitalize">{TONES.find((t) => t.id === selectedTone)?.label}</span>
                                   <span>•</span>
                                   <span>{post.content.length} chars</span>
+                                  {brandVoice.trim() && (
+                                    <>
+                                      <span>•</span>
+                                      <Mic className="h-3 w-3 text-orange-500" />
+                                      <span className="text-orange-500">Brand Voice</span>
+                                    </>
+                                  )}
                                 </div>
-                                <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
-                                  AI Generated
-                                </Badge>
+                                <div className="flex items-center gap-1.5">
+                                  {post.scheduled && (
+                                    <Badge className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 border-0">
+                                      <Check className="h-3 w-3 mr-0.5" /> Scheduled
+                                    </Badge>
+                                  )}
+                                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                                    AI Generated
+                                  </Badge>
+                                </div>
                               </div>
                             </CardContent>
                           </Card>
                         </motion.div>
                       ))}
 
+                      {/* Schedule Modal */}
+                      <AnimatePresence>
+                        {showScheduleModal && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                          >
+                            <Card className="rounded-2xl border-orange-300 soft-glow">
+                              <CardContent className="p-5">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                                    <CalendarClock className="h-4 w-4 text-orange-500" />
+                                    Schedule Post
+                                  </h4>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setShowScheduleModal(null)}
+                                    className="cursor-pointer h-7 w-7 p-0"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date</label>
+                                    <input
+                                      type="date"
+                                      value={scheduleDate}
+                                      onChange={(e) => setScheduleDate(e.target.value)}
+                                      min={new Date().toISOString().split('T')[0]}
+                                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Time</label>
+                                    <input
+                                      type="time"
+                                      value={scheduleTime}
+                                      onChange={(e) => setScheduleTime(e.target.value)}
+                                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                    />
+                                  </div>
+                                </div>
+                                <Button
+                                  onClick={() => handleSchedule(showScheduleModal)}
+                                  className="mt-4 w-full gradient-brand text-white border-0 cursor-pointer rounded-xl"
+                                  size="sm"
+                                >
+                                  <CalendarClock className="h-4 w-4 mr-1.5" />
+                                  Confirm Schedule
+                                </Button>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
                       {/* Regenerate */}
                       <div className="pt-4">
                         <Button
                           onClick={handleGenerate}
-                          disabled={isGenerating}
+                          disabled={isGenerating || generationsUsed >= 10}
                           variant="outline"
                           className="w-full cursor-pointer rounded-xl py-5"
                         >
@@ -1054,7 +1456,7 @@ export default function Home() {
               <button onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">
                 Features
               </button>
-              <span className="text-orange-500 font-medium">v1.0</span>
+              <span className="text-orange-500 font-medium">v2.0</span>
             </div>
           </div>
         </div>

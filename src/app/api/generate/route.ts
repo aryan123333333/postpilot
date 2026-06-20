@@ -5,6 +5,8 @@ interface GenerateRequest {
   platform: string;
   tone: string;
   count: number;
+  mode?: 'generate' | 'repurpose' | 'enhance';
+  brandVoice?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -278,14 +280,22 @@ function buildPrompt(req: GenerateRequest): string {
   const profile = PLATFORM_PROFILES[req.platform] || PLATFORM_PROFILES.twitter;
   const toneGuide = TONE_INSTRUCTIONS[req.tone] || TONE_INSTRUCTIONS.casual;
 
-  return `Generate exactly ${req.count} unique, high-engagement ${profile.contentType}s about: "${req.topic}"
+  const brandVoiceSection = req.brandVoice
+    ? `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBRAND VOICE (MATCH THIS STYLE):\n${req.brandVoice}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nEvery post MUST sound like it was written by this brand/person. Match their vocabulary, sentence structure, humor style, and overall energy. Do NOT ignore this section.`
+    : "";
+
+  const repurposeSection = req.mode === 'repurpose'
+    ? `\n\nCONTENT REPURPOSING MODE:\nThe user has provided an existing piece of content (article, transcript, etc.). Your job is to extract the KEY IDEAS, INSIGHTS, and VALUE from this source content and create entirely NEW social media posts from it. Do NOT simply copy or rephrase the original. Extract the core messages and create fresh, engaging posts that stand on their own.\n\nSOURCE CONTENT TO REPURPOSE:\n${req.topic}`
+    : `\nGenerate exactly ${req.count} unique, high-engagement ${profile.contentType}s about: "${req.topic}"`;
+
+  return `${repurposeSection}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PLATFORM: ${req.platform.toUpperCase()}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 TONE: ${toneGuide}
-
+${brandVoiceSection}
 MAX LENGTH: ${profile.maxChars} characters per post (STRICT — every post MUST be under this limit)
 
 CONTENT STRUCTURE RULES:
@@ -316,6 +326,31 @@ Output ONLY the posts separated by exactly this delimiter on its own line:
 ---POST---
 No numbers. No labels. No titles. No intro text. No outro text. Just the posts.
 The VERY FIRST character of your response must be the start of Post #1.`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Prompt enhancer — turns simple topics into detailed prompts        */
+/* ------------------------------------------------------------------ */
+
+function buildEnhancePrompt(topic: string): string {
+  return `You are a prompt engineering expert. Take this simple topic or content and rewrite it into a detailed, specific, context-rich version that will produce much better AI-generated social media content.
+
+ORIGINAL INPUT:
+"${topic}"
+
+Your enhanced version should:
+1. Add specific angles, context, and target audience details
+2. Include 2-3 specific sub-topics or talking points
+3. Make it vivid and specific rather than generic
+4. Keep it concise (2-4 sentences max)
+5. DO NOT add quotes around the output
+6. Output ONLY the enhanced text, nothing else
+
+EXAMPLE:
+Input: "marketing tips"
+Output: "5 counterintuitive marketing strategies that helped small SaaS startups grow from 0 to 10K users in 6 months, including specific tactics for LinkedIn content marketing, Twitter engagement threads, and email funnel optimization for B2B"
+
+Now enhance the user's input:`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -398,16 +433,54 @@ function parsePosts(raw: string, platform: string): string[] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Simple in-memory rate limiter (IP-based)                           */
+/* ------------------------------------------------------------------ */
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 5; // 5 requests per minute per IP
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return false;
+  }
+  entry.count++;
+  return entry.count > RATE_LIMIT_MAX;
+}
+
+/* ------------------------------------------------------------------ */
 /*  API Route                                                          */
 /* ------------------------------------------------------------------ */
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting by IP
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: "Rate limit reached. Please wait a moment before generating more posts." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
-    const { topic, platform, tone, count } = body as GenerateRequest;
+    const { topic, platform, tone, count, mode, brandVoice } = body as GenerateRequest;
 
     if (!topic || topic.trim().length < 3) {
       return NextResponse.json({ error: "Please provide a topic (at least 3 characters)" }, { status: 400 });
+    }
+
+    // ENHANCE MODE — just return an enhanced prompt, don't generate posts
+    if (mode === "enhance") {
+      const enhancePrompt = buildEnhancePrompt(topic.trim());
+      const enhanced = await generateWithAI(enhancePrompt);
+      return NextResponse.json({
+        success: true,
+        enhanced: enhanced.trim().replace(/^["']|["']$/g, ""),
+      });
     }
 
     const validPlatforms = Object.keys(PLATFORM_PROFILES);
@@ -421,7 +494,7 @@ export async function POST(request: NextRequest) {
     }
 
     const postCount = Math.min(Math.max(count || 3, 1), 10);
-    const prompt = buildPrompt({ topic, platform, tone, count: postCount });
+    const prompt = buildPrompt({ topic, platform, tone, count: postCount, mode: mode || "generate", brandVoice });
 
     const rawContent = await generateWithAI(prompt);
     const posts = parsePosts(rawContent, platform);
