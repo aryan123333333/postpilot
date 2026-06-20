@@ -2,7 +2,7 @@
 
 import { signIn, getProviders, useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
-import { Rocket, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Rocket, Loader2, AlertCircle } from 'lucide-react';
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
@@ -24,16 +24,11 @@ function LoginContent() {
   useEffect(() => {
     getProviders().then(setProviders);
 
-    // Check for OAuth errors in URL
     const errorParam = searchParams.get('error');
-    if (errorParam === 'OAuthAccountNotLinked') {
-      setError('This email is already linked to another account.');
-    } else if (errorParam === 'AccessDenied') {
-      setError('Access was denied. Your email may not be authorized as a test user in Google Console.');
+    if (errorParam === 'AccessDenied') {
+      setError('Access denied. Make sure your email is added as a test user in Google Console.');
     } else if (errorParam === 'Configuration') {
-      setError('Sign-in configuration error. Please try again later.');
-    } else if (errorParam === 'Callback') {
-      setError('Redirect error. Please try again.');
+      setError('Configuration error. Check server environment variables.');
     } else if (errorParam) {
       setError(`Sign-in error: ${errorParam}`);
     }
@@ -42,22 +37,13 @@ function LoginContent() {
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
-
     try {
-      // Always redirect to homepage after sign-in, NEVER back to /login
-      await signIn('google', {
-        redirect: true,
-        callbackUrl: window.location.origin + '/?view=app',
-      });
-    } catch (err) {
+      await signIn('google', { redirect: true });
+    } catch {
       setError('Something went wrong. Please try again.');
       setLoading(false);
     }
-
-    // Fallback: if signIn doesn't redirect after 10s, show error
-    setTimeout(() => {
-      setLoading(false);
-    }, 10000);
+    setTimeout(() => { setLoading(false); }, 10000);
   };
 
   if (status === 'loading') {
@@ -70,7 +56,6 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center relative overflow-hidden">
-      {/* Background gradient orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
@@ -83,7 +68,6 @@ function LoginContent() {
         transition={{ duration: 0.6 }}
         className="relative z-10 w-full max-w-md px-6"
       >
-        {/* Logo */}
         <div className="text-center mb-8">
           <motion.div
             initial={{ scale: 0.8 }}
@@ -99,7 +83,6 @@ function LoginContent() {
           <p className="text-zinc-400 text-sm">AI-Powered Social Media Content Engine</p>
         </div>
 
-        {/* Login Card */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -112,7 +95,6 @@ function LoginContent() {
               <p className="text-zinc-400 text-sm mt-1">Get 20 free AI generations to start</p>
             </div>
 
-            {/* Error message */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -5 }}
@@ -124,7 +106,6 @@ function LoginContent() {
               </motion.div>
             )}
 
-            {/* Google Sign In Button */}
             <button
               onClick={handleGoogleSignIn}
               disabled={loading || !providers.google}
@@ -141,16 +122,13 @@ function LoginContent() {
                 </svg>
               )}
               <span>{loading ? 'Signing in...' : 'Continue with Google'}</span>
-              {!loading && <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />}
             </button>
 
-            {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zinc-800" /></div>
               <div className="relative flex justify-center text-xs"><span className="px-3 bg-zinc-900 text-zinc-500">Free forever plan</span></div>
             </div>
 
-            {/* Features list */}
             <div className="space-y-3">
               {[
                 '20 free AI generations',
@@ -167,7 +145,6 @@ function LoginContent() {
           </div>
         </motion.div>
 
-        {/* Footer */}
         <p className="text-center text-zinc-600 text-xs mt-6">
           By signing in, you agree to our Terms of Service and Privacy Policy
         </p>

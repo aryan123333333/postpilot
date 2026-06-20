@@ -343,7 +343,7 @@ function HomeContent() {
     if (status === 'authenticated') {
       setActiveView('app');
     } else {
-      signIn('google', { callbackUrl: '/?view=app' });
+      signIn('google');
     }
   };
 
@@ -2097,7 +2097,7 @@ function HomeContent() {
                       {/* Google Sign In */}
                       <div className="mt-6">
                         <Button
-                          onClick={() => signIn('google', { callbackUrl: '/' })}
+                          onClick={() => signIn('google')}
                           className="w-full h-12 rounded-xl cursor-pointer border border-border bg-background hover:bg-muted text-foreground font-medium text-sm gap-3"
                           variant="outline"
                         >
