@@ -14,9 +14,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nebula Engine - Generative Particle Universe",
-  description: "A real-time generative art engine with interactive particle physics, mouse-reactive force fields, and immersive visual themes. Built with Next.js, TypeScript, and HTML5 Canvas.",
-  keywords: ["generative art", "particles", "canvas", "interactive", "physics", "nebula"],
+  title: "PostPilot — AI-Powered Social Media Content Engine",
+  description:
+    "Generate viral social media content in seconds. AI-crafted posts for Twitter/X, LinkedIn, Instagram, TikTok & YouTube. Try free today.",
+  keywords: [
+    "AI content generator",
+    "social media tool",
+    "AI SaaS",
+    "content creation",
+    "social media marketing",
+    "viral posts",
+    "PostPilot",
+  ],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
