@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
 
 interface GenerateRequest {
   topic: string;
@@ -7,6 +8,7 @@ interface GenerateRequest {
   count: number;
   mode?: 'generate' | 'repurpose' | 'enhance';
   brandVoice?: string;
+  userId?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -30,7 +32,7 @@ const PLATFORM_PROFILES: Record<string, PlatformProfile> = {
 - Open with a bold hook or hot take in the first line
 - Use 1-3 short lines max (separated by single line breaks, NOT paragraphs)
 - End with an engagement driver (a question, a bold claim, or "Thread 🧵" tease)
-- NEVER write multiple tweets in one post — each output is ONE tweet only`,
+- NEVER write multiple tweets in one output — each output is ONE tweet only`,
     hashtagRule: "Include 1-3 hashtags woven naturally into the text or at the very end. Do NOT put hashtags on separate lines.",
     formatExample: `EXAMPLE of a perfect tweet:
 "Most people think remote work means less productivity.
@@ -404,27 +406,26 @@ function parsePosts(raw: string, platform: string): string[] {
     const expanded: string[] = [];
     for (const post of posts) {
       if (post.length > profile.maxChars * 1.1) {
-        // Try splitting strategies for merged posts
         let chunks: string[] = [];
-        
+
         // Strategy A: Split at double-newline + hashtag (good for IG, YT)
         chunks = post.split(/\n\n(?=#)/).map((c) => c.trim()).filter((c) => c.length > 15);
-        
+
         // Strategy B: Split at double-newline + emoji/numbered header
         if (chunks.length <= 1) {
           chunks = post.split(/\n\s*\n(?=[\d#\-*])/).map((c) => c.trim()).filter((c) => c.length > 15);
         }
-        
+
         // Strategy C: Split at "Post #N" labels within the merged block
         if (chunks.length <= 1) {
           chunks = post.split(/(?:^|\n)\s*Post\s*#\d+[\s:\-]*/i).map((c) => c.trim()).filter((c) => c.length > 50);
         }
-        
+
         // Strategy D: For very long posts, try double newline boundaries
         if (chunks.length <= 1 && post.length > profile.maxChars * 1.5) {
           chunks = post.split(/\n\s*\n/).map((c) => c.trim()).filter((c) => c.length > 100);
         }
-        
+
         if (chunks.length > 1) {
           expanded.push(...chunks);
         } else {
@@ -437,7 +438,7 @@ function parsePosts(raw: string, platform: string): string[] {
     posts = expanded;
   }
 
-  // Clean each post: remove any remaining "Post #N" labels, leading/trailing dashes
+  // Clean each post
   posts = posts.map((p) =>
     p
       .replace(/^\s*Post\s*\d+[\s:\-]*/i, "")
@@ -448,8 +449,8 @@ function parsePosts(raw: string, platform: string): string[] {
 
   // Filter out posts that are clearly too short or too long for the platform
   posts = posts.filter((p) => {
-    if (p.length < 15) return false; // too short to be useful
-    if (p.length > profile.maxChars * 1.5) return false; // way too long
+    if (p.length < 15) return false;
+    if (p.length > profile.maxChars * 1.5) return false;
     return true;
   });
 
@@ -457,22 +458,37 @@ function parsePosts(raw: string, platform: string): string[] {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Simple in-memory rate limiter (IP-based)                           */
+/*  Rate limiter — database-backed for production                       */
 /* ------------------------------------------------------------------ */
 
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 5; // 5 requests per minute per IP
 
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return false;
-  }
-  entry.count++;
-  return entry.count > RATE_LIMIT_MAX;
+async function isRateLimited(ip: string): Promise<boolean> {
+  const since = new Date(Date.now() - RATE_LIMIT_WINDOW);
+  const recentCount = await db.rateLimitLog.count({
+    where: {
+      ip,
+      createdAt: { gte: since },
+    },
+  });
+  return recentCount >= RATE_LIMIT_MAX;
+}
+
+async function logRateLimit(ip: string): Promise<void> {
+  await db.rateLimitLog.create({ data: { ip } }).catch(() => {});
+}
+
+/* ------------------------------------------------------------------ */
+/*  Credit check — deduct generation credit                            */
+/* ------------------------------------------------------------------ */
+
+async function checkCredits(userId: string): Promise<{ allowed: boolean; remaining: number }> {
+  const user = await db.user.findUnique({ where: { id: userId } });
+  if (!user) return { allowed: true, remaining: 50 };
+
+  const remaining = user.creditsLimit - user.creditsUsed;
+  return { allowed: remaining > 0, remaining };
 }
 
 /* ------------------------------------------------------------------ */
@@ -481,15 +497,11 @@ function isRateLimited(ip: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting by IP
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (isRateLimited(ip)) {
-      // Log rate limit hit to admin stats (fire-and-forget)
-      fetch("http://localhost:3000/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "rate_limited", value: 1 }),
-      }).catch(() => {});
+
+    // Rate limiting by IP (database-backed)
+    if (await isRateLimited(ip)) {
+      await logRateLimit(ip);
       return NextResponse.json(
         { error: "Rate limit reached. Please wait a moment before generating more posts." },
         { status: 429 }
@@ -497,7 +509,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { topic, platform, tone, count, mode, brandVoice } = body as GenerateRequest;
+    const { topic, platform, tone, count, mode, brandVoice, userId } = body as GenerateRequest;
 
     if (!topic || topic.trim().length < 3) {
       return NextResponse.json({ error: "Please provide a topic (at least 3 characters)" }, { status: 400 });
@@ -513,6 +525,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Credit check for authenticated users
+    if (userId) {
+      const creditCheck = await checkCredits(userId);
+      if (!creditCheck.allowed) {
+        return NextResponse.json(
+          { error: "Generation limit reached. Upgrade your plan for more credits.", creditsRemaining: 0 },
+          { status: 403 }
+        );
+      }
+    }
+
     const validPlatforms = Object.keys(PLATFORM_PROFILES);
     if (!platform || !validPlatforms.includes(platform)) {
       return NextResponse.json({ error: `Invalid platform. Choose from: ${validPlatforms.join(", ")}` }, { status: 400 });
@@ -524,7 +547,7 @@ export async function POST(request: NextRequest) {
     }
 
     const postCount = Math.min(Math.max(count || 3, 1), 10);
-    const prompt = buildPrompt({ topic, platform, tone, count: postCount, mode: mode || "generate", brandVoice });
+    const prompt = buildPrompt({ topic, platform, tone, count: postCount, mode: mode || "generate", brandVoice, userId });
 
     const rawContent = await generateWithAI(prompt);
     const posts = parsePosts(rawContent, platform);
@@ -533,20 +556,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to parse generated content. Please try again." }, { status: 500 });
     }
 
-    // Log generation to admin stats (fire-and-forget, don't block the response)
-    fetch("http://localhost:3000/api/admin", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    // Log generation to database (fire-and-forget)
+    db.generation.create({
+      data: {
+        userId: userId || null,
         topic: topic.trim(),
         platform,
         tone,
-        count: postCount,
+        postCount,
         postsGenerated: posts.length,
         mode: mode || "generate",
+        postsJson: JSON.stringify(posts),
         ip,
-      }),
-    }).catch(() => { /* silently ignore stats logging failures */ });
+      },
+    }).then(() => {
+      // Increment user credits
+      if (userId) {
+        db.user.update({
+          where: { id: userId },
+          data: { creditsUsed: { increment: 1 } },
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+
+    // Get remaining credits for response
+    let creditsRemaining: number | undefined;
+    if (userId) {
+      const creditCheck = await checkCredits(userId);
+      creditsRemaining = creditCheck.remaining;
+    }
 
     return NextResponse.json({
       success: true,
@@ -555,6 +593,7 @@ export async function POST(request: NextRequest) {
       topic,
       tone,
       generatedAt: new Date().toISOString(),
+      creditsRemaining,
     });
   } catch (error) {
     console.error("Generation error:", error);

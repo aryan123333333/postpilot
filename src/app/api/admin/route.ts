@@ -1,104 +1,205 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
 
-// In-memory stats store — persists across requests in the same process
-interface GenerationRecord {
-  id: string;
-  topic: string;
-  platform: string;
-  tone: string;
-  count: number;
-  postsGenerated: number;
-  mode: string;
-  timestamp: string;
-  ip: string;
-}
+/* ------------------------------------------------------------------ */
+/*  PUT — Log a generation to the database                              */
+/* ------------------------------------------------------------------ */
 
-interface Stats {
-  totalGenerations: number;
-  totalPostsGenerated: number;
-  generationsByPlatform: Record<string, number>;
-  generationsByTone: Record<string, number>;
-  generationsByMode: Record<string, number>;
-  rateLimitedRequests: number;
-  recentGenerations: GenerationRecord[];
-  uptime: number;
-}
-
-// Simple in-memory store (for production, use a database)
-const generationHistory: GenerationRecord[] = [];
-let rateLimitedCount = 0;
-const startTime = Date.now();
-
-// This endpoint is called from the generate route to log stats
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { topic, platform, tone, count, postsGenerated, mode, ip } = body;
+    const { userId, topic, platform, tone, count, postsGenerated, mode, ip, posts } = body;
 
-    const record: GenerationRecord = {
-      id: `gen-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      topic: topic || "",
-      platform: platform || "unknown",
-      tone: tone || "unknown",
-      count: count || 1,
-      postsGenerated: postsGenerated || 0,
-      mode: mode || "generate",
-      timestamp: new Date().toISOString(),
-      ip: ip || "unknown",
-    };
+    await db.generation.create({
+      data: {
+        userId: userId || null,
+        topic: topic || "",
+        platform: platform || "unknown",
+        tone: tone || "unknown",
+        postCount: count || 1,
+        postsGenerated: postsGenerated || 0,
+        mode: mode || "generate",
+        postsJson: posts ? JSON.stringify(posts) : null,
+        ip: ip || "unknown",
+      },
+    });
 
-    generationHistory.push(record);
-    // Keep last 500 records only
-    if (generationHistory.length > 500) {
-      generationHistory.splice(0, generationHistory.length - 500);
+    // Update user credits if userId provided
+    if (userId) {
+      await db.user.update({
+        where: { id: userId },
+        data: { creditsUsed: { increment: 1 } },
+      }).catch(() => { /* user might not exist yet */ });
     }
 
+    // Update total generations metric
+    await db.systemMetric.upsert({
+      where: { metric: "totalGenerations" },
+      update: { value: (await getTotalGenerations() + 1).toString() },
+      create: { metric: "totalGenerations", value: "1" },
+    }).catch(() => {});
+
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("Admin PUT error:", error);
     return NextResponse.json({ error: "Failed to log generation" }, { status: 500 });
   }
 }
 
+/* ------------------------------------------------------------------ */
+/*  POST — Log rate limited requests                                    */
+/* ------------------------------------------------------------------ */
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, value } = body;
+    const { type, value, ip } = body;
+
     if (type === "rate_limited") {
-      rateLimitedCount += value || 1;
+      await db.rateLimitLog.create({
+        data: { ip: ip || "unknown" },
+      });
     }
+
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("Admin POST error:", error);
     return NextResponse.json({ error: "Failed to update stat" }, { status: 500 });
   }
 }
 
+/* ------------------------------------------------------------------ */
+/*  GET — Full admin stats dashboard                                    */
+/* ------------------------------------------------------------------ */
+
 export async function GET() {
-  const totalGenerations = generationHistory.length;
-  const totalPostsGenerated = generationHistory.reduce((sum, g) => sum + g.postsGenerated, 0);
+  try {
+    const [
+      totalGenerations,
+      platformBreakdown,
+      toneBreakdown,
+      modeBreakdown,
+      recentGenerations,
+      rateLimitedCount,
+      userStats,
+      uptimeStart,
+    ] = await Promise.all([
+      getTotalGenerations(),
+      getPlatformBreakdown(),
+      getToneBreakdown(),
+      getModeBreakdown(),
+      getRecentGenerations(20),
+      getRateLimitedCount(),
+      getUserStats(),
+      getUptimeStart(),
+    ]);
 
-  const generationsByPlatform: Record<string, number> = {};
-  const generationsByTone: Record<string, number> = {};
-  const generationsByMode: Record<string, number> = {};
-
-  for (const gen of generationHistory) {
-    generationsByPlatform[gen.platform] = (generationsByPlatform[gen.platform] || 0) + 1;
-    generationsByTone[gen.tone] = (generationsByTone[gen.tone] || 0) + 1;
-    generationsByMode[gen.mode] = (generationsByMode[gen.mode] || 0) + 1;
+    return NextResponse.json({
+      totalGenerations,
+      totalPostsGenerated: await getTotalPostsGenerated(),
+      generationsByPlatform: platformBreakdown,
+      generationsByTone: toneBreakdown,
+      generationsByMode: modeBreakdown,
+      rateLimitedRequests: rateLimitedCount,
+      recentGenerations,
+      uptime: uptimeStart
+        ? Math.floor((Date.now() - uptimeStart.getTime()) / 1000)
+        : 0,
+      users: userStats,
+    });
+  } catch (error) {
+    console.error("Admin GET error:", error);
+    return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
   }
+}
 
-  // Last 20 generations (newest first)
-  const recentGenerations = [...generationHistory].reverse().slice(0, 20);
+/* ------------------------------------------------------------------ */
+/*  Helper functions                                                    */
+/* ------------------------------------------------------------------ */
 
-  const stats: Stats = {
-    totalGenerations,
-    totalPostsGenerated,
-    generationsByPlatform,
-    generationsByTone,
-    generationsByMode,
-    rateLimitedRequests: rateLimitedCount,
-    recentGenerations,
-    uptime: Math.floor((Date.now() - startTime) / 1000),
-  };
+async function getTotalGenerations(): Promise<number> {
+  return db.generation.count();
+}
 
-  return NextResponse.json(stats);
+async function getTotalPostsGenerated(): Promise<number> {
+  const result = await db.generation.aggregate({ _sum: { postsGenerated: true } });
+  return result._sum.postsGenerated || 0;
+}
+
+async function getPlatformBreakdown(): Promise<Record<string, number>> {
+  const records = await db.generation.groupBy({
+    by: ["platform"],
+    _count: { id: true },
+  });
+  const breakdown: Record<string, number> = {};
+  for (const r of records) {
+    breakdown[r.platform] = r._count.id;
+  }
+  return breakdown;
+}
+
+async function getToneBreakdown(): Promise<Record<string, number>> {
+  const records = await db.generation.groupBy({
+    by: ["tone"],
+    _count: { id: true },
+  });
+  const breakdown: Record<string, number> = {};
+  for (const r of records) {
+    breakdown[r.tone] = r._count.id;
+  }
+  return breakdown;
+}
+
+async function getModeBreakdown(): Promise<Record<string, number>> {
+  const records = await db.generation.groupBy({
+    by: ["mode"],
+    _count: { id: true },
+  });
+  const breakdown: Record<string, number> = {};
+  for (const r of records) {
+    breakdown[r.mode] = r._count.id;
+  }
+  return breakdown;
+}
+
+async function getRecentGenerations(limit: number) {
+  return db.generation.findMany({
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      topic: true,
+      platform: true,
+      tone: true,
+      postCount: true,
+      postsGenerated: true,
+      mode: true,
+      createdAt: true,
+      ip: true,
+    },
+  });
+}
+
+async function getRateLimitedCount(): Promise<number> {
+  // Count rate limited requests in the last 24 hours
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  return db.rateLimitLog.count({ where: { createdAt: { gte: since } } });
+}
+
+async function getUserStats() {
+  const totalUsers = await db.user.count();
+  const admins = await db.user.count({ where: { role: "admin" } });
+  const recentUsers = await db.user.findMany({
+    take: 5,
+    orderBy: { createdAt: "desc" },
+    select: { id: true, name: true, email: true, creditsUsed: true, creditsLimit: true, createdAt: true },
+  });
+  return { totalUsers, admins, recentUsers };
+}
+
+async function getUptimeStart(): Promise<Date | null> {
+  const metric = await db.systemMetric.findUnique({
+    where: { metric: "uptimeStart" },
+  });
+  return metric ? new Date(metric.value) : null;
 }

@@ -7,6 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/* ────────────────────── Auth (NextAuth) ────────────────────── */
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -14,10 +16,13 @@ model User {
   emailVerified DateTime?
   image         String?
   role          String    @default("user") // "user" | "admin"
+  creditsUsed   Int       @default(0)
+  creditsLimit  Int       @default(50) // free tier: 50 generations
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   accounts      Account[]
   sessions      Session[]
+  generations   Generation[]
 }
 
 model Account {
@@ -52,4 +57,41 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+/* ────────────────────── Analytics & History ────────────────────── */
+
+model Generation {
+  id              String   @id @default(cuid())
+  userId          String?
+  topic           String
+  platform        String
+  tone            String
+  postCount       Int      @default(1)
+  postsGenerated  Int      @default(0)
+  mode            String   @default("generate") // "generate" | "repurpose" | "enhance"
+  postsJson       String?  // store generated posts as JSON
+  ip              String?
+  createdAt       DateTime @default(now())
+
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([platform])
+  @@index([createdAt])
+}
+
+model RateLimitLog {
+  id        String   @id @default(cuid())
+  ip        String
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+}
+
+model SystemMetric {
+  id        String   @id @default(cuid())
+  metric    String   @unique // e.g. "totalGenerations", "uptimeStart"
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
 }
