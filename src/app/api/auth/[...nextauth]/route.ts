@@ -38,6 +38,19 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
+    // Allow any callback URL from the same origin
+    async redirect({ url, baseUrl }) {
+      // If url is relative, prepend baseUrl
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
+      // If url starts with baseUrl, allow it
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      // Otherwise fallback to baseUrl
+      return baseUrl;
+    },
   },
   pages: {
     signIn: "/login",

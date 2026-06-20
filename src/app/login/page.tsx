@@ -1,16 +1,25 @@
 'use client';
 
-import { signIn, getProviders } from 'next-auth/react';
+import { signIn, getProviders, useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { Rocket, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<Record<string, { id: string; name: string; }>>({});
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // If already authenticated, redirect to app
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      router.push('/?view=app');
+    }
+  }, [status, session, router]);
 
   useEffect(() => {
     getProviders().then(setProviders);
@@ -23,6 +32,8 @@ function LoginContent() {
       setError('Access was denied. Your email may not be authorized as a test user in Google Console.');
     } else if (errorParam === 'Configuration') {
       setError('Sign-in configuration error. Please try again later.');
+    } else if (errorParam === 'Callback') {
+      setError('Redirect error. Please try again.');
     } else if (errorParam) {
       setError(`Sign-in error: ${errorParam}`);
     }
@@ -34,7 +45,6 @@ function LoginContent() {
 
     try {
       await signIn('google', {
-        callbackUrl: '/?view=app',
         redirect: true,
       });
     } catch (err) {
@@ -47,6 +57,14 @@ function LoginContent() {
       setLoading(false);
     }, 10000);
   };
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center relative overflow-hidden">
