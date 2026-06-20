@@ -586,7 +586,7 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => signIn('google', { callbackUrl: '/?view=app' })}
                 className="cursor-pointer text-xs gap-1.5"
               >
                 <LogIn className="h-4 w-4" />
