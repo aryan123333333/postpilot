@@ -1,0 +1,466 @@
+   600→   600→                            <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
+   601→   601→                            <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
+   602→   602→                          </div>
+   603→   603→                        </div>
+   604→   604→                      </motion.div>
+   605→   605→                    ))}
+   606→   606→                  </div>
+   607→   607→                </div>
+   608→   608→              </section>
+   609→   609→
+   610→   610→              {/* PRICING */}
+   611→   611→              <section id="pricing" className="py-20 lg:py-28 bg-muted/30">
+   612→   612→                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   613→   613→                  <div className="text-center max-w-2xl mx-auto mb-16">
+   614→   614→                    <Badge variant="secondary" className="mb-4">Pricing</Badge>
+   615→   615→                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+   616→   616→                      Simple pricing,{' '}
+   617→   617→                      <span className="gradient-text">serious results</span>
+   618→   618→                    </h2>
+   619→   619→                    <p className="mt-4 text-lg text-muted-foreground">
+   620→   620→                      Start free. Upgrade when you are ready to scale your content machine.
+   621→   621→                    </p>
+   622→   622→                  </div>
+   623→   623→
+   624→   624→                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+   625→   625→                    {PRICING.map((plan, i) => (
+   626→   626→                      <motion.div
+   627→   627→                        key={plan.name}
+   628→   628→                        initial={{ opacity: 0, y: 24 }}
+   629→   629→                        whileInView={{ opacity: 1, y: 0 }}
+   630→   630→                        viewport={{ once: true }}
+   631→   631→                        transition={{ duration: 0.5, delay: i * 0.1 }}
+   632→   632→                        className={plan.popular ? 'md:-mt-4 md:mb-0' : ''}
+   633→   633→                      >
+   634→   634→                        <Card className={`h-full rounded-2xl relative ${plan.popular ? 'border-2 border-orange-400 shadow-lg soft-glow' : 'border-border/50'}`}>
+   635→   635→                          {plan.popular && (
+   636→   636→                            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+   637→   637→                              <Badge className="gradient-brand text-white border-0 px-4 py-1">Most Popular</Badge>
+   638→   638→                            </div>
+   639→   639→                          )}
+   640→   640→                          <CardContent className="p-6 pt-8">
+   641→   641→                            <h3 className="text-lg font-semibold">{plan.name}</h3>
+   642→   642→                            <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
+   643→   643→                            <div className="mt-4 flex items-baseline gap-1">
+   644→   644→                              <span className="text-4xl font-bold">{plan.price}</span>
+   645→   645→                              <span className="text-sm text-muted-foreground">{plan.period}</span>
+   646→   646→                            </div>
+   647→   647→                            <ul className="mt-6 space-y-3">
+   648→   648→                              {plan.features.map((f) => (
+   649→   649→                                <li key={f} className="flex items-start gap-2.5 text-sm">
+   650→   650→                                  <Check className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
+   651→   651→                                  <span className="text-muted-foreground">{f}</span>
+   652→   652→                                </li>
+   653→   653→                              ))}
+   654→   654→                            </ul>
+   655→   655→                            <Button
+   656→   656→                              className={`mt-8 w-full cursor-pointer rounded-xl ${plan.popular ? 'gradient-brand text-white border-0 hover:opacity-90' : ''}`}
+   657→   657→                              variant={plan.popular ? 'default' : 'outline'}
+   658→   658→                              onClick={() => setActiveView('app')}
+   659→   659→                            >
+   660→   660→                              {plan.cta}
+   661→   661→                              {plan.popular && <ArrowRight className="h-4 w-4 ml-1.5" />}
+   662→   662→                            </Button>
+   663→   663→                          </CardContent>
+   664→   664→                        </Card>
+   665→   665→                      </motion.div>
+   666→   666→                    ))}
+   667→   667→                  </div>
+   668→   668→                </div>
+   669→   669→              </section>
+   670→   670→
+   671→   671→              {/* TESTIMONIALS */}
+   672→   672→              <section className="py-20 lg:py-28">
+   673→   673→                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   674→   674→                  <div className="text-center max-w-2xl mx-auto mb-16">
+   675→   675→                    <Badge variant="secondary" className="mb-4">Testimonials</Badge>
+   676→   676→                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+   677→   677→                      Loved by creators{' '}
+   678→   678→                      <span className="gradient-text">worldwide</span>
+   679→   679→                    </h2>
+   680→   680→                  </div>
+   681→   681→
+   682→   682→                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+   683→   683→                    {TESTIMONIALS.map((t, i) => (
+   684→   684→                      <motion.div
+   685→   685→                        key={t.name}
+   686→   686→                        initial={{ opacity: 0, y: 24 }}
+   687→   687→                        whileInView={{ opacity: 1, y: 0 }}
+   688→   688→                        viewport={{ once: true }}
+   689→   689→                        transition={{ duration: 0.5, delay: i * 0.1 }}
+   690→   690→                      >
+   691→   691→                        <Card className="h-full rounded-2xl border-border/50 card-lift">
+   692→   692→                          <CardContent className="p-6">
+   693→   693→                            <div className="flex gap-0.5 mb-4">
+   694→   694→                              {[...Array(5)].map((_, j) => (
+   695→   695→                                <Star key={j} className="h-4 w-4 fill-amber-400 text-amber-400" />
+   696→   696→                              ))}
+   697→   697→                            </div>
+   698→   698→                            <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+   699→   699→                              &ldquo;{t.text}&rdquo;
+   700→   700→                            </p>
+   701→   701→                            <div className="flex items-center gap-3">
+   702→   702→                              <div className="h-10 w-10 rounded-full gradient-brand flex items-center justify-center text-white text-xs font-bold">
+   703→   703→                                {t.avatar}
+   704→   704→                              </div>
+   705→   705→                              <div>
+   706→   706→                                <div className="text-sm font-semibold">{t.name}</div>
+   707→   707→                                <div className="text-xs text-muted-foreground">{t.role}</div>
+   708→   708→                              </div>
+   709→   709→                            </div>
+   710→   710→                          </CardContent>
+   711→   711→                        </Card>
+   712→   712→                      </motion.div>
+   713→   713→                    ))}
+   714→   714→                  </div>
+   715→   715→                </div>
+   716→   716→              </section>
+   717→   717→
+   718→   718→              {/* FINAL CTA */}
+   719→   719→              <section className="py-20 lg:py-28 bg-muted/30">
+   720→   720→                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
+   721→   721→                  <motion.div
+   722→   722→                    initial={{ opacity: 0, y: 24 }}
+   723→   723→                    whileInView={{ opacity: 1, y: 0 }}
+   724→   724→                    viewport={{ once: true }}
+   725→   725→                    className="max-w-2xl mx-auto"
+   726→   726→                  >
+   727→   727→                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+   728→   728→                      Ready to{' '}
+   729→   729→                      <span className="gradient-text">10x your content output?</span>
+   730→   730→                    </h2>
+   731→   731→                    <p className="mt-4 text-lg text-muted-foreground">
+   732→   732→                      Join 12,000+ creators who stopped writing posts manually and started scaling with AI.
+   733→   733→                    </p>
+   734→   734→                    <div className="mt-10">
+   735→   735→                      <Button
+   736→   736→                        size="lg"
+   737→   737→                        onClick={() => setActiveView('app')}
+   738→   738→                        className="gradient-brand text-white border-0 hover:opacity-90 px-8 py-6 text-base font-semibold cursor-pointer rounded-xl"
+   739→   739→                      >
+   740→   740→                        <Sparkles className="h-5 w-5 mr-2" />
+   741→   741→                        Launch PostPilot — Free
+   742→   742→                        <ArrowRight className="h-5 w-5 ml-2" />
+   743→   743→                      </Button>
+   744→   744→                    </div>
+   745→   745→                    <p className="mt-4 text-sm text-muted-foreground">
+   746→   746→                      <Clock className="h-3.5 w-3.5 inline mr-1" />
+   747→   747→                      Takes less than 30 seconds to generate your first batch
+   748→   748→                    </p>
+   749→   749→                  </motion.div>
+   750→   750→                </div>
+   751→   751→              </section>
+   752→   752→            </motion.div>
+   753→   753→          )}
+   754→   754→
+   755→   755→          {/* -------------------------------------------------------- */}
+   756→   756→          {/*  APP VIEW — Content Generator                              */}
+   757→   757→          {/* -------------------------------------------------------- */}
+   758→   758→          {activeView === 'app' && (
+   759→   759→            <motion.div
+   760→   760→              key="app"
+   761→   761→              initial={{ opacity: 0 }}
+   762→   762→              animate={{ opacity: 1 }}
+   763→   763→              exit={{ opacity: 0 }}
+   764→   764→              transition={{ duration: 0.3 }}
+   765→   765→              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12"
+   766→   766→            >
+   767→   767→              {/* App Header */}
+   768→   768→              <div className="flex items-center justify-between mb-8">
+   769→   769→                <div>
+   770→   770→                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+   771→   771→                    Content Generator
+   772→   772→                  </h1>
+   773→   773→                  <p className="text-muted-foreground mt-1">
+   774→   774→                    Enter a topic and let AI craft viral posts for your chosen platform
+   775→   775→                  </p>
+   776→   776→                </div>
+   777→   777→                <Button
+   778→   778→                  variant="outline"
+   779→   779→                  size="sm"
+   780→   780→                  onClick={() => setActiveView('landing')}
+   781→   781→                  className="cursor-pointer"
+   782→   782→                >
+   783→   783→                  Back to Home
+   784→   784→                </Button>
+   785→   785→              </div>
+   786→   786→
+   787→   787→              <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-8">
+   788→   788→                {/* LEFT: Controls */}
+   789→   789→                <div className="space-y-6">
+   790→   790→                  {/* Topic Input */}
+   791→   791→                  <Card className="rounded-2xl border-border/50">
+   792→   792→                    <CardContent className="p-6">
+   793→   793→                      <label className="text-sm font-semibold mb-3 block">
+   794→   794→                        <Sparkles className="h-4 w-4 inline mr-1.5 text-orange-500" />
+   795→   795→                        What do you want to post about?
+   796→   796→                      </label>
+   797→   797→                      <Textarea
+   798→   798→                        value={topic}
+   799→   799→                        onChange={(e) => setTopic(e.target.value)}
+   800→   800→                        placeholder="e.g. 'How AI is changing remote work in 2026', '5 productivity hacks for entrepreneurs', 'Why every startup needs a content strategy'..."
+   801→   801→                        className="min-h-[120px] resize-none rounded-xl text-sm leading-relaxed"
+   802→   802→                      />
+   803→   803→                      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+   804→   804→                        <span>{topic.length} characters</span>
+   805→   805→                        <span className={topic.length >= 3 ? 'text-orange-500' : ''}>
+   806→   806→                          {topic.length >= 3 ? 'Ready to generate' : 'Min 3 characters'}
+   807→   807→                        </span>
+   808→   808→                      </div>
+   809→   809→                    </CardContent>
+   810→   810→                  </Card>
+   811→   811→
+   812→   812→                  {/* Platform Selector */}
+   813→   813→                  <Card className="rounded-2xl border-border/50">
+   814→   814→                    <CardContent className="p-6">
+   815→   815→                      <label className="text-sm font-semibold mb-3 block">
+   816→   816→                        <Globe className="h-4 w-4 inline mr-1.5 text-orange-500" />
+   817→   817→                        Target Platform
+   818→   818→                      </label>
+   819→   819→                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+   820→   820→                        {PLATFORMS.map((p) => (
+   821→   821→                          <button
+   822→   822→                            key={p.id}
+   823→   823→                            onClick={() => setSelectedPlatform(p.id)}
+   824→   824→                            className={`flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
+   825→   825→                              selectedPlatform === p.id
+   826→   826→                                ? 'border-orange-400 bg-orange-50 text-orange-700'
+   827→   827→                                : 'border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
+   828→   828→                            }`}
+   829→   829→                          >
+   830→   830→                            <p.icon className="h-4 w-4" style={{ color: selectedPlatform === p.id ? undefined : p.color }} />
+   831→   831→                            <div className="text-left">
+   832→   832→                              <div className="text-xs font-semibold">{p.name}</div>
+   833→   833→                              <div className="text-[10px] opacity-60">{p.desc}</div>
+   834→   834→                            </div>
+   835→   835→                          </button>
+   836→   836→                        ))}
+   837→   837→                      </div>
+   838→   838→                    </CardContent>
+   839→   839→                  </Card>
+   840→   840→
+   841→   841→                  {/* Tone + Count */}
+   842→   842→                  <Card className="rounded-2xl border-border/50">
+   843→   843→                    <CardContent className="p-6 space-y-5">
+   844→   844→                      {/* Tone */}
+   845→   845→                      <div>
+   846→   846→                        <label className="text-sm font-semibold mb-3 block">
+   847→   847→                          <Palette className="h-4 w-4 inline mr-1.5 text-orange-500" />
+   848→   848→                          Tone & Style
+   849→   849→                        </label>
+   850→   850→                        <div className="flex flex-wrap gap-2">
+   851→   851→                          {TONES.map((t) => (
+   852→   852→                            <button
+   853→   853→                              key={t.id}
+   854→   854→                              onClick={() => setSelectedTone(t.id)}
+   855→   855→                              className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+   856→   856→                                selectedTone === t.id
+   857→   857→                                  ? 'border-orange-400 bg-orange-50 text-orange-700'
+   858→   858→                                  : 'border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
+   859→   859→                              }`}
+   860→   860→                            >
+   861→   861→                              {t.emoji} {t.label}
+   862→   862→                            </button>
+   863→   863→                          ))}
+   864→   864→                        </div>
+   865→   865→                      </div>
+   866→   866→
+   867→   867→                      {/* Post Count */}
+   868→   868→                      <div>
+   869→   869→                        <label className="text-sm font-semibold mb-3 block">
+   870→   870→                          Number of Posts
+   871→   871→                        </label>
+   872→   872→                        <div className="flex items-center gap-3">
+   873→   873→                          <input
+   874→   874→                            type="range"
+   875→   875→                            min={1}
+   876→   876→                            max={10}
+   877→   877→                            value={postCount}
+   878→   878→                            onChange={(e) => setPostCount(Number(e.target.value))}
+   879→   879→                            className="flex-1 accent-orange-500"
+   880→   880→                          />
+   881→   881→                          <span className="text-sm font-mono font-semibold bg-muted px-3 py-1.5 rounded-lg min-w-[48px] text-center">
+   882→   882→                            {postCount}
+   883→   883→                          </span>
+   884→   884→                        </div>
+   885→   885→                      </div>
+   886→   886→                    </CardContent>
+   887→   887→                  </Card>
+   888→   888→
+   889→   889→                  {/* Generate Button */}
+   890→   890→                  <div className="flex gap-3">
+   891→   891→                    <Button
+   892→   892→                      onClick={handleGenerate}
+   893→   893→                      disabled={isGenerating || !topic.trim() || topic.trim().length < 3}
+   894→   894→                      className="flex-1 gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-6 text-base font-semibold"
+   895→   895→                      size="lg"
+   896→   896→                    >
+   897→   897→                      {isGenerating ? (
+   898→   898→                        <>
+   899→   899→                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+   900→   900→                          Generating...
+   901→   901→                        </>
+   902→   902→                      ) : (
+   903→   903→                        <>
+   904→   904→                          <Zap className="h-5 w-5 mr-2" />
+   905→   905→                          Generate {postCount} Post{postCount > 1 ? 's' : ''}
+   906→   906→                        </>
+   907→   907→                      )}
+   908→   908→                    </Button>
+   909→   909→                    {generatedPosts.length > 0 && (
+   910→   910→                      <Button
+   911→   911→                        variant="outline"
+   912→   912→                        onClick={handleClear}
+   913→   913→                        className="rounded-xl px-4 cursor-pointer"
+   914→   914→                        size="lg"
+   915→   915→                      >
+   916→   916→                        <RefreshCw className="h-4 w-4" />
+   917→   917→                      </Button>
+   918→   918→                    )}
+   919→   919→                  </div>
+   920→   920→                </div>
+   921→   921→
+   922→   922→                {/* RIGHT: Results */}
+   923→   923→                <div ref={resultsRef}>
+   924→   924→                  {generatedPosts.length === 0 && !isGenerating ? (
+   925→   925→                    <Card className="rounded-2xl border-dashed border-2 border-border/50">
+   926→   926→                      <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
+   927→   927→                        <div className="h-20 w-20 rounded-2xl bg-muted flex items-center justify-center mb-6">
+   928→   928→                          <Sparkles className="h-10 w-10 text-muted-foreground" />
+   929→   929→                        </div>
+   930→   930→                        <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
+   931→   931→                        <p className="text-sm text-muted-foreground max-w-sm">
+   932→   932→                          Enter a topic, choose your platform and tone, then hit generate. Your AI-crafted social media posts will appear here.
+   933→   933→                        </p>
+   934→   934→                      </CardContent>
+   935→   935→                    </Card>
+   936→   936→                  ) : isGenerating ? (
+   937→   937→                    <Card className="rounded-2xl border-border/50">
+   938→   938→                      <CardContent className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+   939→   939→                        <div className="relative">
+   940→   940→                          <div className="h-16 w-16 rounded-2xl gradient-brand flex items-center justify-center animate-pulse">
+   941→   941→                            <Zap className="h-8 w-8 text-white" />
+   942→   942→                          </div>
+   943→   943→                          <div className="absolute inset-0 rounded-2xl gradient-brand animate-ping opacity-20" />
+   944→   944→                        </div>
+   945→   945→                        <h3 className="mt-6 text-lg font-semibold">Creating your posts...</h3>
+   946→   946→                        <p className="text-sm text-muted-foreground mt-2">
+   947→   947→                          AI is crafting {postCount} unique posts for {PLATFORMS.find((p) => p.id === selectedPlatform)?.name}
+   948→   948→                        </p>
+   949→   949→                        <div className="mt-6 w-48 h-1.5 bg-muted rounded-full overflow-hidden">
+   950→   950→                          <div className="h-full gradient-brand rounded-full animate-[shimmer_2s_ease-in-out_infinite]" style={{ width: '60%' }} />
+   951→   951→                        </div>
+   952→   952→                      </CardContent>
+   953→   953→                    </Card>
+   954→   954→                  ) : (
+   955→   955→                    <div className="space-y-4">
+   956→   956→                      <div className="flex items-center justify-between">
+   957→   957→                        <h3 className="text-sm font-semibold text-muted-foreground">
+   958→   958→                          Generated Posts
+   959→   959→                          <Badge variant="secondary" className="ml-2">{generatedPosts.length}</Badge>
+   960→   960→                        </h3>
+   961→   961→                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   962→   962→                          {platformIcon(selectedPlatform, 'h-3.5 w-3.5')}
+   963→   963→                          {PLATFORMS.find((p) => p.id === selectedPlatform)?.name}
+   964→   964→                        </div>
+   965→   965→                      </div>
+   966→   966→
+   967→   967→                      {generatedPosts.map((post, i) => (
+   968→   968→                        <motion.div
+   969→   969→                          key={post.id}
+   970→   970→                          initial={{ opacity: 0, y: 16 }}
+   971→   971→                          animate={{ opacity: 1, y: 0 }}
+   972→   972→                          transition={{ duration: 0.4, delay: i * 0.08 }}
+   973→   973→                        >
+   974→   974→                          <Card className="rounded-2xl border-border/50 card-lift">
+   975→   975→                            <CardContent className="p-5">
+   976→   976→                              <div className="flex items-start justify-between gap-4">
+   977→   977→                                <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+   978→   978→                                  <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
+   979→   979→                                    #{i + 1}
+   980→   980→                                  </span>
+   981→   981→                                </div>
+   982→   982→                                <div className="flex gap-2 flex-shrink-0">
+   983→   983→                                  <Button
+   984→   984→                                    variant="ghost"
+   985→   985→                                    size="sm"
+   986→   986→                                    onClick={() => handleCopy(post.id, post.content)}
+   987→   987→                                    className="cursor-pointer h-8 px-2.5"
+   988→   988→                                  >
+   989→   989→                                    {post.copied ? (
+   990→   990→                                      <Check className="h-4 w-4 text-green-500" />
+   991→   991→                                    ) : (
+   992→   992→                                      <Copy className="h-4 w-4" />
+   993→   993→                                    )}
+   994→   994→                                  </Button>
+   995→   995→                                </div>
+   996→   996→                              </div>
+   997→   997→                              <div className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
+   998→   998→                                {post.content}
+   999→   999→                              </div>
+  1000→  1000→                              <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
+  1001→  1001→                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+  1002→  1002→                                  {platformIcon(post.platform, 'h-3.5 w-3.5')}
+  1003→  1003→                                  <span className="capitalize">{TONES.find((t) => t.id === selectedTone)?.label}</span>
+  1004→  1004→                                  <span>•</span>
+  1005→  1005→                                  <span>{post.content.length} chars</span>
+  1006→  1006→                                </div>
+  1007→  1007→                                <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+  1008→  1008→                                  AI Generated
+  1009→  1009→                                </Badge>
+  1010→  1010→                              </div>
+  1011→  1011→                            </CardContent>
+  1012→  1012→                          </Card>
+  1013→  1013→                        </motion.div>
+  1014→  1014→                      ))}
+  1015→  1015→
+  1016→  1016→                      {/* Regenerate */}
+  1017→  1017→                      <div className="pt-4">
+  1018→  1018→                        <Button
+  1019→  1019→                          onClick={handleGenerate}
+  1020→  1020→                          disabled={isGenerating}
+  1021→  1021→                          variant="outline"
+  1022→  1022→                          className="w-full cursor-pointer rounded-xl py-5"
+  1023→  1023→                        >
+  1024→  1024→                          <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+  1025→  1025→                          Generate More Posts
+  1026→  1026→                        </Button>
+  1027→  1027→                      </div>
+  1028→  1028→                    </div>
+  1029→  1029→                  )}
+  1030→  1030→                </div>
+  1031→  1031→              </div>
+  1032→  1032→            </motion.div>
+  1033→  1033→          )}
+  1034→  1034→        </AnimatePresence>
+  1035→  1035→      </main>
+  1036→  1036→
+  1037→  1037→      {/* ============================================================ */}
+  1038→  1038→      {/*  FOOTER                                                       */}
+  1039→  1039→      {/* ============================================================ */}
+  1040→  1040→      <footer className="border-t border-border/50 mt-auto">
+  1041→  1041→        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+  1042→  1042→          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+  1043→  1043→            <div className="flex items-center gap-2.5">
+  1044→  1044→              <PostPilotLogo className="h-8 w-8" />
+  1045→  1045→              <span className="text-sm font-semibold">PostPilot</span>
+  1046→  1046→            </div>
+  1047→  1047→            <p className="text-xs text-muted-foreground">
+  1048→  1048→              Built with AI. Designed for creators. &copy; 2026 PostPilot.
+  1049→  1049→            </p>
+  1050→  1050→            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+  1051→  1051→              <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">
+  1052→  1052→                Pricing
+  1053→  1053→              </button>
+  1054→  1054→              <button onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">
+  1055→  1055→                Features
+  1056→  1056→              </button>
+  1057→  1057→              <span className="text-orange-500 font-medium">v1.0</span>
+  1058→  1058→            </div>
+  1059→  1059→          </div>
+  1060→  1060→        </div>
+  1061→  1061→      </footer>
+  1062→  1062→    </div>
+  1063→  1063→  );
+  1064→  1064→}
+  1065→  1065→
