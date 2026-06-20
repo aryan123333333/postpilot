@@ -38,17 +38,24 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    // Allow any callback URL from the same origin
+    // Prevent redirect loops - never redirect back to /login
     async redirect({ url, baseUrl }) {
-      // If url is relative, prepend baseUrl
       if (url.startsWith("/")) {
+        // Relative URL: if it points to /login, redirect to homepage instead
+        if (url.startsWith("/login")) {
+          return baseUrl;
+        }
         return `${baseUrl}${url}`;
       }
-      // If url starts with baseUrl, allow it
+      // If url starts with baseUrl, check it's not a login loop
       if (url.startsWith(baseUrl)) {
+        const urlPath = url.replace(baseUrl, "");
+        if (urlPath.startsWith("/login")) {
+          return baseUrl;
+        }
         return url;
       }
-      // Otherwise fallback to baseUrl
+      // Fallback: go to homepage
       return baseUrl;
     },
   },

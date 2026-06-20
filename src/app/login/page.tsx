@@ -44,8 +44,10 @@ function LoginContent() {
     setLoading(true);
 
     try {
+      // Always redirect to homepage after sign-in, NEVER back to /login
       await signIn('google', {
         redirect: true,
+        callbackUrl: window.location.origin + '/?view=app',
       });
     } catch (err) {
       setError('Something went wrong. Please try again.');
