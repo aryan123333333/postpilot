@@ -62,16 +62,17 @@ const PLATFORMS = [
   { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: '#0A66C2', desc: 'Professional long-form' },
   { id: 'instagram', name: 'Instagram', icon: Instagram, color: '#E4405F', desc: 'Visual captions + hashtags' },
   { id: 'tiktok', name: 'TikTok', icon: Play, color: '#000000', desc: 'Viral short hooks' },
-  { id: 'youtube', name: 'YouTube', icon: Youtube, color: '#FF0000', desc: 'Descriptions & metadata' },
+  { id: 'youtube-long', name: 'YouTube Long', icon: Youtube, color: '#FF0000', desc: 'Full video description' },
+  { id: 'youtube-shorts', name: 'YouTube Shorts', icon: Play, color: '#FF0000', desc: 'Short punchy hooks' },
 ] as const;
 
 const TONES = [
-  { id: 'professional', label: 'Professional', emoji: '💼' },
-  { id: 'casual', label: 'Casual', emoji: '😎' },
-  { id: 'humorous', label: 'Humorous', emoji: '😂' },
-  { id: 'inspirational', label: 'Inspirational', emoji: '🚀' },
-  { id: 'provocative', label: 'Provocative', emoji: '🔥' },
-  { id: 'educational', label: 'Educational', emoji: '📚' },
+  { id: 'professional', label: 'Serious', emoji: '💼' },
+  { id: 'casual', label: 'Chill', emoji: '😎' },
+  { id: 'humorous', label: 'Funny', emoji: '😂' },
+  { id: 'inspirational', label: 'Motivation', emoji: '🚀' },
+  { id: 'provocative', label: 'Bold', emoji: '🔥' },
+  { id: 'educational', label: 'Teach', emoji: '📚' },
 ] as const;
 
 const FEATURES = [
@@ -87,8 +88,8 @@ const FEATURES = [
   },
   {
     icon: Globe,
-    title: '5-Platform Mastery',
-    description: 'One input, five platforms. PostPilot automatically reformats and optimizes your content for Twitter/X, LinkedIn, Instagram, TikTok, and YouTube with platform-native formatting.',
+    title: '6-Platform Mastery',
+    description: 'One input, six platform options. PostPilot automatically reformats and optimizes your content for Twitter/X, LinkedIn, Instagram, TikTok, YouTube Long Videos, and YouTube Shorts with platform-native formatting.',
   },
   {
     icon: BarChart3,
@@ -147,7 +148,7 @@ const PRICING: PricingPlan[] = [
     description: 'For creators & solopreneurs',
     features: [
       'Unlimited generations',
-      'All 5 platforms',
+      'All 6 platform options',
       'All tone presets',
       'Advanced hashtag engine',
       'Content repurposing',
@@ -259,15 +260,18 @@ export default function Home() {
         return;
       }
 
-      const posts: GeneratedPost[] = data.posts.map((content: string) => ({
+      const allPosts: GeneratedPost[] = data.posts.map((content: string) => ({
         id: uid(),
         content,
         platform: data.platform,
         copied: false,
       }));
 
+      // Clamp to exactly the requested count — no more, no less
+      const posts = allPosts.slice(0, postCount);
+
       setGeneratedPosts(posts);
-      toast.success(`Generated ${posts.length} posts for ${PLATFORMS.find((p) => p.id === data.platform)?.name || data.platform}!`);
+      toast.success(`Generated ${posts.length} post${posts.length > 1 ? 's' : ''}!`);
     } catch {
       toast.error('Network error. Please check your connection and try again.');
     } finally {

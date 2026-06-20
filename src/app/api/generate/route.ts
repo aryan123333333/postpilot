@@ -163,10 +163,10 @@ What's the ONE thing you're focusing on this week? Drop it below 👇
       "Being generic — must feel native to TikTok's fast-paced culture",
     ],
   },
-  youtube: {
+  'youtube-long': {
     maxChars: 5000,
-    contentType: "YouTube video description",
-    structureRules: `MUST be a complete YouTube video description optimized for SEO and click-through.
+    contentType: "YouTube long video description",
+    structureRules: `MUST be a complete YouTube long video description optimized for SEO and click-through.
 - First 1-2 lines: compelling summary with keywords (shows in search results and under the video)
 - After the hook, write a detailed 200-400 word description with:
   - Overview of what the video covers
@@ -177,7 +177,7 @@ What's the ONE thing you're focusing on this week? Drop it below 👇
 - Include 2-3 relevant links formatted as: "🔗 [Link Text](URL)"
 - Professional tone, information-rich, SEO-optimized with natural keyword placement`,
     hashtagRule: "Include 3-5 hashtags at the very end. YouTube hashtags help with categorization: #HowToMakeMoneyOnline #RemoteWork",
-    formatExample: `EXAMPLE of a perfect YouTube description:
+    formatExample: `EXAMPLE of a perfect YouTube long video description:
 "Discover the 7 proven remote income streams generating $5,000+ monthly from home — backed by real data and case studies.
 
 In this video, I break down the exact strategies that everyday people are using to build sustainable income from their laptops. No get-rich-quick schemes — just proven methods with real numbers.
@@ -195,7 +195,6 @@ Timestamps:
 
 Resources mentioned in this video:
 🔗 Free Digital Product Starter Guide — [link in description]
-🔗 E-commerce Platform Comparison — [link in description]
 
 I've personally tested each of these methods over the past 3 years and compiled the data into actionable steps you can follow starting this week.
 
@@ -212,15 +211,38 @@ Which income stream are you most interested in? Let me know in the comments!
       "No call-to-action at the end",
     ],
   },
+  'youtube-shorts': {
+    maxChars: 150,
+    contentType: "YouTube Shorts hook/caption",
+    structureRules: `MUST be an ultra-short YouTube Shorts hook that appears as on-screen text or caption.
+- Maximum 150 characters — punchy and fast, just like TikTok
+- Open with a pattern interrupt: "Nobody talks about...", "POV:", "Stop scrolling if...", "The #1 reason..."
+- Could be a bold claim, provocative question, or challenge
+- Use emojis — they boost engagement on Shorts
+- Each output is ONE short hook only — NOT a script, NOT a description`,
+    hashtagRule: "Include 3-5 relevant hashtags at the end: #Shorts #SideHustle #MoneyTok",
+    formatExample: `EXAMPLES of perfect YouTube Shorts hooks:
+"Nobody talks about this $5K/month side hustle 🤫 #Shorts #MakeMoneyOnline"
+
+"POV: you finally stopped trading time for money 💸 #Shorts #FinancialFreedom"
+
+"3 remote jobs that pay more than your office job 📱 #Shorts #RemoteWork"`,
+    forbiddenPatterns: [
+      "More than 150 characters total (including hashtags)",
+      "Long sentences or paragraphs",
+      "Numbered lists or structured content",
+      "Multiple hooks mashed together in one output",
+    ],
+  },
 };
 
 const TONE_INSTRUCTIONS: Record<string, string> = {
-  professional: "Professional, authoritative, data-driven, industry-insightful. Use refined language, cite numbers and statistics naturally.",
-  casual: "Casual, conversational, relatable, fun. Use everyday language, contractions, and expressions. Talk like a smart friend.",
-  humorous: "Witty, funny, clever, entertaining. Use humor, wordplay, and light sarcasm naturally. Don't force jokes.",
-  inspirational: "Inspirational, motivational, empowering. Use uplifting language, emotional hooks, and future-focused optimism.",
-  provocative: "Bold, contrarian, thought-provoking. Challenge common assumptions, take a strong stance, provoke discussion.",
-  educational: "Educational, informative, clear, actionable. Break down complex topics into simple steps with practical takeaways.",
+  professional: "Serious and expert. Use real numbers, facts, and clear insights. Sound like someone who knows their stuff.",
+  casual: "Chill and relaxed. Talk like you're explaining it to a friend over coffee. Use simple words, everyday language.",
+  humorous: "Funny and entertaining. Make people laugh or smile while still delivering value. Light and playful.",
+  inspirational: "Motivating and hype. Make people feel pumped up and ready to take action. Uplifting energy.",
+  provocative: "Bold and controversial. Say what others won't. Challenge the norm, stir debate, take a strong stand.",
+  educational: "Clear and helpful. Break things down step by step so anyone can understand. Teach, don't lecture.",
 };
 
 /* ------------------------------------------------------------------ */
