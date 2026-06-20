@@ -1953,10 +1953,6 @@ function HomeContent() {
               <button onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">
                 Features
               </button>
-              <button onClick={() => setActiveView('admin')} className="hover:text-orange-500 transition-colors cursor-pointer flex items-center gap-1">
-                <Shield className="h-3 w-3" />
-                Admin
-              </button>
               <span className="text-orange-500 font-medium">v2.1</span>
             </div>
           </div>
@@ -2023,18 +2019,6 @@ function HomeContent() {
                         >
                           <Sparkles className="h-4 w-4 mr-2" />
                           Open Generator
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          className="w-full cursor-pointer rounded-xl"
-                          onClick={() => {
-                            setShowAuthModal(false);
-                            setActiveView('admin');
-                          }}
-                        >
-                          <LayoutDashboard className="h-4 w-4 mr-2" />
-                          Admin Dashboard
                         </Button>
 
                         <div className="pt-3 border-t border-border/50">
