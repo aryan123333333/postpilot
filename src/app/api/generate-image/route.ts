@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "rnd_kZofcF7qhAcFdc4sMklqbHiOauTx";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -12,56 +14,77 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const API_BASE = "https://internal-api.z.ai/v1";
-    const API_KEY = "Z.ai";
-    const CHAT_ID = process.env.ZAI_CHAT_ID || "chat-d815a1cf-53ae-43a9-9873-125a2006601a";
-    const USER_ID = process.env.ZAI_USER_ID || "bf40d1c8-8c6e-4bd7-ab7d-2b76cb46ba81";
-    const TOKEN = process.env.ZAI_TOKEN || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYmY0MGQxYzgtOGM2ZS00YmQ3LWFiN2QtMmI3NmNiNDZiYTgxIiwiY2hhdF9pZCI6ImNoYXQtZDgxNWExY2YtNTNhZS00M2E5LTk4NzMtMTI1YTIwMDY2MDFhIiwicGxhdGZvcm0iOiJ6YWkifQ.etx87Pxbxl1gB5aXbYrb0Y6W_6hhdIhN7eO0Xg0MFX0";
-
-    const res = await fetch(`${API_BASE}/images/generations`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}`,
-        "X-Z-AI-From": "Z",
-        "X-Chat-Id": CHAT_ID,
-        "X-User-Id": USER_ID,
-        "X-Token": TOKEN,
-      },
-      body: JSON.stringify({
-        prompt: `social media post image about ${prompt.trim()}, vibrant colors, modern design, professional quality, engaging visual`,
-        size: "1024x1024",
-      }),
-    });
+    // Use Gemini's image generation (Imagen 3 Free)
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Generate a vibrant, modern, professional social media post image about: ${prompt.trim()}. Use bold colors, clean design, engaging visual composition.`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
+          },
+        }),
+      }
+    );
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "Unknown error");
-      throw new Error(`Image API returned ${res.status}: ${errText}`);
+      // Fallback: try with standard image model
+      return generateImageFallback(prompt.trim());
     }
 
     const result = await res.json();
-    const imageBase64 = result?.data?.[0]?.base64;
+    
+    // Check for image in response parts
+    const parts = result.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find(
+      (p: any) => p.inlineData && p.inlineData.mimeType && p.inlineData.mimeType.startsWith("image/")
+    );
 
-    if (!imageBase64) {
-      return NextResponse.json(
-        { error: "Failed to generate image. Please try again." },
-        { status: 500 }
-      );
+    if (imagePart) {
+      const imageData = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+      return NextResponse.json({
+        success: true,
+        image: imageData,
+        prompt: prompt.trim(),
+        generatedAt: new Date().toISOString(),
+      });
     }
 
-    const imageData = `data:image/png;base64,${imageBase64}`;
-
-    return NextResponse.json({
-      success: true,
-      image: imageData,
-      prompt: prompt.trim(),
-      generatedAt: new Date().toISOString(),
-    });
+    // No image in response — try fallback
+    return generateImageFallback(prompt.trim());
   } catch (error) {
     console.error("Image generation error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Internal server error. Please try again later." },
+      { error: `Image generation error: ${msg}` },
       { status: 500 }
     );
   }
+}
+
+async function generateImageFallback(prompt: string) {
+  // Use pollinations.ai as free fallback — no API key needed!
+  const encodedPrompt = encodeURIComponent(
+    `social media post image about ${prompt}, vibrant colors, modern design, professional quality`
+  );
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true`;
+
+  return NextResponse.json({
+    success: true,
+    image: imageUrl,
+    isUrl: true,
+    prompt,
+    generatedAt: new Date().toISOString(),
+  });
 }

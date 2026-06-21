@@ -250,48 +250,38 @@ const TONE_INSTRUCTIONS: Record<string, string> = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  AI generation                                                      */
+/*  AI generation — uses Google Gemini (free, works from anywhere)     */
 /* ------------------------------------------------------------------ */
 
-async function generateWithAI(prompt: string): Promise<string> {
-  const API_BASE = "https://internal-api.z.ai/v1";
-  const API_KEY = "Z.ai";
-  const CHAT_ID = process.env.ZAI_CHAT_ID || "chat-d815a1cf-53ae-43a9-9873-125a2006601a";
-  const USER_ID = process.env.ZAI_USER_ID || "bf40d1c8-8c6e-4bd7-ab7d-2b76cb46ba81";
-  const TOKEN = process.env.ZAI_TOKEN || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYmY0MGQxYzgtOGM2ZS00YmQ3LWFiN2QtMmI3NmNiNDZiYTgxIiwiY2hhdF9pZCI6ImNoYXQtZDgxNWExY2YtNTNhZS00M2E5LTk4NzMtMTI1YTIwMDY2MDFhIiwicGxhdGZvcm0iOiJ6YWkifQ.etx87Pxbxl1gB5aXbYrb0Y6W_6hhdIhN7eO0Xg0MFX0";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "rnd_kZofcF7qhAcFdc4sMklqbHiOauTx";
 
-  const res = await fetch(`${API_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${API_KEY}`,
-      "X-Z-AI-From": "Z",
-      "X-Chat-Id": CHAT_ID,
-      "X-User-Id": USER_ID,
-      "X-Token": TOKEN,
-    },
-    body: JSON.stringify({
-      messages: [
-        {
-          role: "assistant",
-          content: `You are PostPilot, the world's best social media content strategist. You have 15 years of experience helping brands go viral. You understand each platform's algorithm, culture, and content format at an expert level. Your content never feels AI-generated — it feels like it was written by a top-tier creator who genuinely lives and breathes that platform. You NEVER violate platform-specific format rules.`,
+async function generateWithAI(prompt: string): Promise<string> {
+  const systemPrompt = `You are PostPilot, the world's best social media content strategist. You have 15 years of experience helping brands go viral. You understand each platform's algorithm, culture, and content format at an expert level. Your content never feels AI-generated — it feels like it was written by a top-tier creator who genuinely lives and breathes that platform. You NEVER violate platform-specific format rules.`;
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          { role: "user", parts: [{ text: `${systemPrompt}\n\n${prompt}` }] },
+        ],
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 4096,
         },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      thinking: { type: "disabled" },
-    }),
-  });
+      }),
+    }
+  );
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "Unknown error");
-    throw new Error(`AI API returned ${res.status}: ${errText}`);
+    throw new Error(`Gemini API error ${res.status}: ${errText}`);
   }
 
   const data = await res.json();
-  return data.choices?.[0]?.message?.content || "Unable to generate content. Please try again.";
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "Unable to generate content. Please try again.";
 }
 
 /* ------------------------------------------------------------------ */
