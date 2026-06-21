@@ -694,7 +694,8 @@ function HomeContent() {
             }),
           });
         } catch (fetchErr) {
-          toast.error('Network error - cannot reach API server. Are you running locally?');
+          const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          alert('API Network Error: ' + errMsg);
           setIsGenerating(false);
           return;
         }
@@ -702,14 +703,14 @@ function HomeContent() {
         const data = await res.json();
 
         if (res.status === 403) {
-          toast.error(data.error || 'No credits remaining. Upgrade your plan!');
+          alert(data.error || 'No credits remaining. Upgrade your plan!');
           setCredits(data.creditsRemaining ?? 0);
           setIsGenerating(false);
           return;
         }
 
         if (!res.ok || !data.success) {
-          toast.error(data.error || `Generation failed for ${platform} (HTTP ${res.status})`);
+          alert('API Error: ' + (data.error || `HTTP ${res.status}`));
           continue;
         }
 
