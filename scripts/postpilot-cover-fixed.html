@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { size: 794px 1123px; margin: 0; }
+    html, body { width: 794px; height: 1123px; background: #ffffff; font-family: 'Inter', sans-serif; }
+    .cover { position: relative; width: 794px; height: 1123px; background: #ffffff; }
+
+    .layer-1 { position: absolute; inset: 0; overflow: hidden; z-index: 1; }
+    .top-bar { position: absolute; top: 0; left: 0; width: 100%; height: 5px; background: #f97316; }
+    .grid-bg {
+      position: absolute; inset: 0;
+      background-image: linear-gradient(rgba(57,79,91,0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .layer-2 { position: absolute; inset: 0; z-index: 2; }
+    .vline { position: absolute; left: 80px; top: 140px; bottom: 140px; width: 4px; background: #f97316; }
+
+    .layer-3 { position: absolute; inset: 0; z-index: 3; }
+    .c { position: absolute; left: 140px; }
+
+    .kicker { top: 190px; font-size: 10pt; font-weight: 600; letter-spacing: 3pt; text-transform: uppercase; color: #f97316; }
+    .title { top: 300px; max-width: 500px; font-size: 44pt; font-weight: 900; line-height: 1.1; color: #1a1a1a; }
+    .title em { font-style: normal; color: #f97316; }
+    .desc { top: 500px; max-width: 420px; font-size: 11pt; line-height: 1.8; color: #888; }
+    .info { bottom: 150px; font-size: 10pt; line-height: 2; color: #888; }
+    .info b { color: #444; font-weight: 600; }
+    .tag { bottom: 70px; font-size: 8pt; font-weight: 600; letter-spacing: 2pt; text-transform: uppercase; color: #ccc; }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <div class="layer-1"><div class="top-bar"></div><div class="grid-bg"></div></div>
+    <div class="layer-2"><div class="vline"></div></div>
+    <div class="layer-3">
+      <div class="c kicker">AI-Powered Social Media Content Platform</div>
+      <div class="c title">Post<em>Pilot</em></div>
+      <div class="c desc">An intelligent content generation platform that leverages cutting-edge AI to create platform-optimized posts, viral hooks, hashtag strategies, and visual content across six major social networks.</div>
+      <div class="c info"><b>Stack:</b> Next.js 16 / TypeScript / Tailwind CSS 4<br><b>AI:</b> Pollinations.ai Free API<br><b>DB:</b> PostgreSQL (Neon) via Prisma ORM<br><b>Date:</b> June 2026</div>
+      <div class="c tag">Product Overview Report</div>
+    </div>
+  </div>
+</body>
+</html>
