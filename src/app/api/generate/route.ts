@@ -728,6 +728,126 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, rawHashtags: rawContent.trim(), topic, platform: platform || "instagram", generatedAt: new Date().toISOString() });
     }
 
+    // MULTI-PLATFORM REPURPOSE MODE — one input → assets for ALL platforms
+    if (mode === "repurpose" && platform === "multi") {
+      const sourceContent = topic.trim();
+      const toneVal = tone || "casual";
+
+      const repurposePrompt = `You are a content repurposing expert. Take the following source content and create NEW social media content for 6 different platforms. Extract the key ideas and create fresh, engaging posts — do NOT simply copy or rephrase.
+
+SOURCE CONTENT:
+"""
+${sourceContent.slice(0, 4000)}
+"""
+
+Create content for these 6 formats. Output each section separated by ---FORMAT---:
+
+FORMAT: tweets (5 tweets, each under 280 chars, punchy and engaging)
+FORMAT: linkedinPosts (2 long-form posts, professional with line breaks, under 3000 chars)
+FORMAT: hooks (5 short hooks/opens, under 100 chars each)
+FORMAT: instagramCaptions (3 captions with emojis and hashtags, under 2200 chars)
+FORMAT: tiktokCaptions (3 short captions, under 150 chars each)
+FORMAT: shortsScripts (3 YouTube Shorts scripts, under 150 chars each)
+
+TONE: ${toneVal}
+${brandVoice ? `BRAND VOICE: ${brandVoice}\nMatch this style closely.\n` : ""}
+
+OUTPUT FORMAT:
+---FORMAT---
+tweets:
+[tweet 1]
+[tweet 2]
+[tweet 3]
+[tweet 4]
+[tweet 5]
+---FORMAT---
+linkedinPosts:
+[post 1]
+[post 2]
+---FORMAT---
+hooks:
+[hook 1]
+[hook 2]
+[hook 3]
+[hook 4]
+[hook 5]
+---FORMAT---
+instagramCaptions:
+[caption 1]
+[caption 2]
+[caption 3]
+---FORMAT---
+tiktokCaptions:
+[caption 1]
+[caption 2]
+[caption 3]
+---FORMAT---
+shortsScripts:
+[script 1]
+[script 2]
+[script 3]
+
+Output ONLY the formatted content, nothing else.`;
+
+      const rawContent = await generateWithAI(repurposePrompt);
+
+      // Parse the multi-format response
+      const parseSection = (text: string, format: string): string[] => {
+        const match = text.match(new RegExp(`${format}:[\\s\\S]*?(?=---FORMAT---|$)`, 'i'));
+        if (!match) return [];
+        const lines = match[0].replace(new RegExp(`${format}:`, 'i'), '').trim().split(/\n{2,}/).map(l => l.trim()).filter(l => l.length > 10);
+        return lines.length > 0 ? lines : match[0].replace(new RegExp(`${format}:`, 'i'), '').trim().split(/\n/).map(l => l.replace(/^[\-\d.]+\s*/, '').trim()).filter(l => l.length > 10);
+      };
+
+      // Also try delimiter-based parsing
+      const sections = rawContent.split(/---FORMAT---/).filter(s => s.trim().length > 5);
+
+      let tweets: string[] = [];
+      let linkedinPosts: string[] = [];
+      let hooks: string[] = [];
+      let instagramCaptions: string[] = [];
+      let tiktokCaptions: string[] = [];
+      let shortsScripts: string[] = [];
+
+      for (const section of sections) {
+        const lower = section.toLowerCase().trim();
+        if (lower.includes('tweet')) {
+          tweets = section.replace(/^tweets?:?\s*/i, '').trim().split(/\n{2,}/).map(l => l.trim()).filter(l => l.length > 10);
+          if (tweets.length <= 1) tweets = section.replace(/^tweets?:?\s*/i, '').trim().split(/\n/).map(l => l.replace(/^[\-\d.]+\s*/, '').trim()).filter(l => l.length > 10);
+        } else if (lower.includes('linkedin')) {
+          linkedinPosts = section.replace(/^linkedinposts?:?\s*/i, '').trim().split(/\n{2,}/).map(l => l.trim()).filter(l => l.length > 20);
+          if (linkedinPosts.length <= 1) linkedinPosts = section.replace(/^linkedinposts?:?\s*/i, '').trim().split(/\n/).map(l => l.replace(/^[\-\d.]+\s*/, '').trim()).filter(l => l.length > 20);
+        } else if (lower.includes('hook')) {
+          hooks = section.replace(/^hooks?:?\s*/i, '').trim().split(/\n/).map(l => l.replace(/^[\-\d.]+\s*/, '').trim()).filter(l => l.length > 10);
+        } else if (lower.includes('instagram')) {
+          instagramCaptions = section.replace(/^instagramcaptions?:?\s*/i, '').trim().split(/\n{2,}/).map(l => l.trim()).filter(l => l.length > 15);
+          if (instagramCaptions.length <= 1) instagramCaptions = section.replace(/^instagramcaptions?:?\s*/i, '').trim().split(/\n/).map(l => l.replace(/^[\-\d.]+\s*/, '').trim()).filter(l => l.length > 15);
+        } else if (lower.includes('tiktok')) {
+          tiktokCaptions = section.replace(/^tiktokcaptions?:?\s*/i, '').trim().split(/\n/).map(l => l.replace(/^[\-\d.]+\s*/, '').trim()).filter(l => l.length > 5);
+        } else if (lower.includes('shorts') || lower.includes('script')) {
+          shortsScripts = section.replace(/^shortsscripts?:?\s*/i, '').trim().split(/\n/).map(l => l.replace(/^[\-\d.]+\s*/, '').trim()).filter(l => l.length > 10);
+        }
+      }
+
+      // Log to DB
+      db.generation.create({
+        data: { userId: userId || null, topic: sourceContent.slice(0, 500), platform: 'multi', tone: toneVal, postCount: 20, postsGenerated: tweets.length + linkedinPosts.length + hooks.length, mode: 'repurpose', ip },
+      }).catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        tweets: tweets.slice(0, 5),
+        linkedinPosts: linkedinPosts.slice(0, 3),
+        hooks: hooks.slice(0, 5),
+        instagramCaptions: instagramCaptions.slice(0, 3),
+        tiktokCaptions: tiktokCaptions.slice(0, 3),
+        shortsScripts: shortsScripts.slice(0, 3),
+        topic,
+        tone: toneVal,
+        generatedAt: new Date().toISOString(),
+      });
+    }
+
     // Credit check for authenticated users
     if (userId) {
       const creditCheck = await checkAndDeductCredits(userId, CREDIT_COST_GENERATE);
