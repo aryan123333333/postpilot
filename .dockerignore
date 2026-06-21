@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.env*
+.netlify
+*.log
+db/
+upload/
+tool-results/
+scripts/
+download/
+examples/
+*.png
+*.jpg
