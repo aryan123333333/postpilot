@@ -357,7 +357,9 @@ function HomeContent() {
   /* Fetch user credits when authenticated */
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      fetch('/api/generate?userId=' + (session.user as any).id)
+      const userId = (session.user as any).id;
+      const email = (session.user as any).email;
+      fetch('/api/generate?userId=' + userId + '&email=' + encodeURIComponent(email))
         .then((r) => r.json())
         .then((data) => {
           setCredits(data.credits);

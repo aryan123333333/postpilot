@@ -544,13 +544,22 @@ async function checkAndDeductCredits(userId: string, cost: number): Promise<Cred
 export async function GET(request: NextRequest) {
   try {
     const userId = request.nextUrl.searchParams.get('userId');
-    if (!userId) {
-      return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
+    const email = request.nextUrl.searchParams.get('email');
+
+    // Try to find user by ID first, then by email as fallback
+    let user = null;
+    if (userId) {
+      user = await db.user.findUnique({
+        where: { id: userId },
+        select: { credits: true, plan: true, createdAt: true },
+      });
     }
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: { credits: true, plan: true, createdAt: true },
-    });
+    if (!user && email) {
+      user = await db.user.findUnique({
+        where: { email },
+        select: { credits: true, plan: true, createdAt: true },
+      });
+    }
     if (!user) {
       return NextResponse.json({ credits: 20, plan: 'free', maxCredits: 20 });
     }
