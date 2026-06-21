@@ -837,6 +837,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Generation error:", error);
-    return NextResponse.json({ error: "Internal server error. Please try again later." }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: `Server error: ${msg}` }, { status: 500 });
   }
 }

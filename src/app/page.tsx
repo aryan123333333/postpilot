@@ -678,19 +678,26 @@ function HomeContent() {
       const activeVoiceObj = [...DEFAULT_BRAND_VOICES, ...customVoices].find(v => v.id === activeVoice);
 
       for (const platform of selectedPlatforms) {
-        const res = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: mainTopic,
-            platform,
-            tone: selectedTone,
-            count: postCount,
-            mode: inputMode === 'repurpose' ? 'repurpose' : 'generate',
-            brandVoice: activeVoiceObj ? activeVoiceObj.systemPrompt : (brandVoice.trim() || undefined),
-            userId: status === 'authenticated' ? (session?.user as any)?.id : undefined,
-          }),
-        });
+        let res: Response;
+        try {
+          res = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              topic: mainTopic,
+              platform,
+              tone: selectedTone,
+              count: postCount,
+              mode: inputMode === 'repurpose' ? 'repurpose' : 'generate',
+              brandVoice: activeVoiceObj ? activeVoiceObj.systemPrompt : (brandVoice.trim() || undefined),
+              userId: status === 'authenticated' ? (session?.user as any)?.id : undefined,
+            }),
+          });
+        } catch (fetchErr) {
+          toast.error('Network error - cannot reach API server. Are you running locally?');
+          setIsGenerating(false);
+          return;
+        }
 
         const data = await res.json();
 
@@ -702,7 +709,7 @@ function HomeContent() {
         }
 
         if (!res.ok || !data.success) {
-          toast.error(data.error || `Generation failed for ${platform}`);
+          toast.error(data.error || `Generation failed for ${platform} (HTTP ${res.status})`);
           continue;
         }
 
@@ -768,10 +775,10 @@ function HomeContent() {
         setHooks(data.hooks);
         toast.success(`Generated ${data.hooks.length} viral hooks!`);
       } else {
-        toast.error('Failed to generate hooks');
+        toast.error(data.error || 'Failed to generate hooks');
       }
     } catch {
-      toast.error('Network error');
+      toast.error('Network error - check console for details');
     } finally {
       setIsGeneratingHooks(false);
     }
