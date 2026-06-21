@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
     "build": "npx prisma generate && next build",
+    "postbuild": "node scripts/copy-prisma.mjs",
     "start": "node .next/standalone/server.js",
     "start:render": "npx prisma generate && node .next/standalone/server.js",
     "lint": "eslint .",
