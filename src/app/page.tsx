@@ -73,6 +73,7 @@ import {
   GraduationCap,
   Heart,
   PenTool,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -1111,6 +1112,14 @@ function HomeContent() {
               </Button>
             )}
 
+            <Button
+              onClick={() => setActiveView('app')}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 cursor-pointer"
+              size="sm"
+            >
+              <Zap className="h-4 w-4 mr-1.5" />
+              Trial
+            </Button>
             <Button
               onClick={goToApp}
               className="gradient-brand text-white border-0 hover:opacity-90 cursor-pointer"
