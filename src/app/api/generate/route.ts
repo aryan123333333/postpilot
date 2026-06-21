@@ -250,38 +250,32 @@ const TONE_INSTRUCTIONS: Record<string, string> = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  AI generation — uses Google Gemini (free, works from anywhere)     */
+/*  AI generation — uses Pollinations.ai (FREE, no API key needed!)    */
 /* ------------------------------------------------------------------ */
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "rnd_kZofcF7qhAcFdc4sMklqbHiOauTx";
 
 async function generateWithAI(prompt: string): Promise<string> {
   const systemPrompt = `You are PostPilot, the world's best social media content strategist. You have 15 years of experience helping brands go viral. You understand each platform's algorithm, culture, and content format at an expert level. Your content never feels AI-generated — it feels like it was written by a top-tier creator who genuinely lives and breathes that platform. You NEVER violate platform-specific format rules.`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          { role: "user", parts: [{ text: `${systemPrompt}\n\n${prompt}` }] },
-        ],
-        generationConfig: {
-          temperature: 0.9,
-          maxOutputTokens: 4096,
-        },
-      }),
-    }
-  );
+  const res = await fetch("https://text.pollinations.ai/openai/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "openai",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.9,
+    }),
+  });
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "Unknown error");
-    throw new Error(`Gemini API error ${res.status}: ${errText}`);
+    throw new Error(`Pollinations API error ${res.status}: ${errText}`);
   }
 
   const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "Unable to generate content. Please try again.";
+  return data.choices?.[0]?.message?.content || "Unable to generate content. Please try again.";
 }
 
 /* ------------------------------------------------------------------ */
