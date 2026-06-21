@@ -267,6 +267,7 @@ async function generateWithAI(prompt: string): Promise<string> {
       ],
       temperature: 0.9,
     }),
+    signal: AbortSignal.timeout(60000), // 60s timeout
   });
 
   if (!res.ok) {
@@ -275,7 +276,12 @@ async function generateWithAI(prompt: string): Promise<string> {
   }
 
   const data = await res.json();
-  return data.choices?.[0]?.message?.content || "Unable to generate content. Please try again.";
+  const content = data.choices?.[0]?.message?.content;
+  if (!content || content.trim().length < 5) {
+    console.error("Pollinations returned empty:", JSON.stringify(data).substring(0, 500));
+    throw new Error("AI returned empty content. Please try again.");
+  }
+  return content;
 }
 
 /* ------------------------------------------------------------------ */
@@ -409,42 +415,20 @@ function buildPrompt(req: GenerateRequest): string {
 
   return `${repurposeSection}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PLATFORM: ${req.platform.toUpperCase()}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 TONE: ${toneGuide}
 ${brandVoiceSection}
-MAX LENGTH: ${profile.maxChars} characters per post (STRICT — every post MUST be under this limit)
+MAX LENGTH: ${profile.maxChars} characters per post
 
-CONTENT STRUCTURE RULES:
+RULES:
 ${profile.structureRules}
-
-HASHTAG RULES:
 ${profile.hashtagRule}
 
-PERFECT EXAMPLE:
-${profile.formatExample}
+Generate exactly ${req.count} separate posts. Each post must have a different angle. Make them feel human-written. No filler.
 
-FORBIDDEN (will result in bad output):
-${profile.forbiddenPatterns.map((p, i) => `${i + 1}. ${p}`).join("\n")}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GENERATION RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. Generate exactly ${req.count} separate posts. Each is a COMPLETE, FINISHED piece of content.
-2. Each post MUST have a fundamentally different angle, hook, and structure — no two should feel similar.
-3. Follow the platform format rules ABOVE ALL ELSE. Platform-native or nothing.
-4. Every post must feel human-written — varied sentence lengths, natural word choice, no robotic patterns.
-5. Every post must deliver real value or trigger real emotion — no filler, no generic fluff.
-6. Respect the character limit STRICTLY. Shorter is better than exceeding it.
-
-OUTPUT FORMAT (CRITICAL):
-Output ONLY the posts separated by exactly this delimiter on its own line:
----POST---
-No numbers. No labels. No titles. No intro text. No outro text. Just the posts.
-The VERY FIRST character of your response must be the start of Post #1.`;
+OUTPUT FORMAT:
+Output ONLY the posts separated by: ---POST---
+No numbers. No labels. No intro/outro. The first character must be the start of Post 1.`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -582,18 +566,21 @@ const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 
 async function isRateLimited(ip: string): Promise<boolean> {
-  const since = new Date(Date.now() - RATE_LIMIT_WINDOW);
-  const recentCount = await db.rateLimitLog.count({
-    where: {
-      ip,
-      createdAt: { gte: since },
-    },
-  });
-  return recentCount >= RATE_LIMIT_MAX;
+  try {
+    const since = new Date(Date.now() - RATE_LIMIT_WINDOW);
+    const recentCount = await db.rateLimitLog.count({
+      where: { ip, createdAt: { gte: since } },
+    });
+    return recentCount >= RATE_LIMIT_MAX;
+  } catch {
+    return false; // If DB fails, allow requests
+  }
 }
 
 async function logRateLimit(ip: string): Promise<void> {
-  await db.rateLimitLog.create({ data: { ip } }).catch(() => {});
+  try {
+    await db.rateLimitLog.create({ data: { ip } }).catch(() => {});
+  } catch {}
 }
 
 /* ------------------------------------------------------------------ */
@@ -624,34 +611,18 @@ interface CreditInfo {
 }
 
 async function checkAndDeductCredits(userId: string, cost: number): Promise<CreditInfo> {
-  const user = await db.user.findUnique({ where: { id: userId } });
-  if (!user) return { allowed: true, remaining: 20, cost, plan: 'free', maxCredits: 20 };
-
-  // Enterprise = unlimited
-  if (user.plan === 'enterprise') {
-    return { allowed: true, remaining: 99999, cost, plan: 'enterprise', maxCredits: 99999 };
+  try {
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) return { allowed: true, remaining: 20, cost, plan: 'free', maxCredits: 20 };
+    if (user.plan === 'enterprise') return { allowed: true, remaining: 99999, cost, plan: 'enterprise', maxCredits: 99999 };
+    const maxCredits = getCreditsForPlan(user.plan);
+    const remaining = user.credits;
+    if (remaining < cost) return { allowed: false, remaining: 0, cost, plan: user.plan, maxCredits };
+    await db.user.update({ where: { id: userId }, data: { credits: { decrement: cost } } });
+    return { allowed: true, remaining: user.credits - cost, cost, plan: user.plan, maxCredits };
+  } catch {
+    return { allowed: true, remaining: 20, cost, plan: 'free', maxCredits: 20 };
   }
-
-  const maxCredits = getCreditsForPlan(user.plan);
-  const remaining = user.credits;
-
-  if (remaining < cost) {
-    return { allowed: false, remaining: 0, cost, plan: user.plan, maxCredits };
-  }
-
-  // Deduct credits
-  await db.user.update({
-    where: { id: userId },
-    data: { credits: { decrement: cost } },
-  });
-
-  return {
-    allowed: true,
-    remaining: user.credits - cost,
-    cost,
-    plan: user.plan,
-    maxCredits,
-  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -662,31 +633,15 @@ export async function GET(request: NextRequest) {
   try {
     const userId = request.nextUrl.searchParams.get('userId');
     const email = request.nextUrl.searchParams.get('email');
-
-    // Try to find user by ID first, then by email as fallback
     let user = null;
-    if (userId) {
-      user = await db.user.findUnique({
-        where: { id: userId },
-        select: { credits: true, plan: true, createdAt: true },
-      });
-    }
-    if (!user && email) {
-      user = await db.user.findUnique({
-        where: { email },
-        select: { credits: true, plan: true, createdAt: true },
-      });
-    }
-    if (!user) {
-      return NextResponse.json({ credits: 20, plan: 'free', maxCredits: 20 });
-    }
-    return NextResponse.json({
-      credits: user.credits,
-      plan: user.plan,
-      maxCredits: getCreditsForPlan(user.plan),
-    });
+    try {
+      if (userId) user = await db.user.findUnique({ where: { id: userId }, select: { credits: true, plan: true, createdAt: true } });
+      if (!user && email) user = await db.user.findUnique({ where: { email }, select: { credits: true, plan: true, createdAt: true } });
+    } catch {}
+    if (!user) return NextResponse.json({ credits: 20, plan: 'free', maxCredits: 20 });
+    return NextResponse.json({ credits: user.credits, plan: user.plan, maxCredits: getCreditsForPlan(user.plan) });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch credits' }, { status: 500 });
+    return NextResponse.json({ credits: 20, plan: 'free', maxCredits: 20 });
   }
 }
 
@@ -728,7 +683,13 @@ export async function POST(request: NextRequest) {
     if (mode === "hook") {
       const hookPrompt = buildHookPrompt({ topic, platform: platform || "twitter", tone: tone || "casual", count: 5, mode: "hook", brandVoice, userId });
       const rawContent = await generateWithAI(hookPrompt);
-      const hooks = rawContent.split("---POST---").map((h) => h.trim()).filter((h) => h.length > 10);
+      let hooks = rawContent.split("---POST---").map((h) => h.trim()).filter((h) => h.length > 10);
+      if (hooks.length <= 1) {
+        hooks = rawContent.split(/\n(?=[-\d]+\.\s)/).map((h) => h.trim()).filter((h) => h.length > 10);
+      }
+      if (hooks.length <= 1) {
+        hooks = rawContent.split(/\n{2,}/).map((h) => h.trim()).filter((h) => h.length > 10);
+      }
       return NextResponse.json({ success: true, hooks, topic, tone: tone || "casual", generatedAt: new Date().toISOString() });
     }
 
@@ -736,7 +697,16 @@ export async function POST(request: NextRequest) {
     if (mode === "thread") {
       const threadPrompt = buildThreadPrompt({ topic, platform: "twitter", tone: tone || "casual", count: 7, mode: "thread", brandVoice, userId });
       const rawContent = await generateWithAI(threadPrompt);
-      const tweets = rawContent.split("---POST---").map((t) => t.trim()).filter((t) => t.length > 10);
+      
+      // Try multiple delimiters
+      let tweets = rawContent.split("---POST---").map((t) => t.trim()).filter((t) => t.length > 10);
+      if (tweets.length <= 1) {
+        tweets = rawContent.split(/\n(?=\d+\/)/).map((t) => t.trim()).filter((t) => t.length > 10);
+      }
+      if (tweets.length <= 1) {
+        tweets = rawContent.split(/\n{2,}/).map((t) => t.trim()).filter((t) => t.length > 10);
+      }
+      
       return NextResponse.json({ success: true, tweets, topic, tone: tone || "casual", generatedAt: new Date().toISOString() });
     }
 
@@ -744,7 +714,10 @@ export async function POST(request: NextRequest) {
     if (mode === "carousel") {
       const carouselPrompt = buildCarouselPrompt({ topic, platform: "instagram", tone: tone || "casual", count: 7, mode: "carousel", brandVoice, userId });
       const rawContent = await generateWithAI(carouselPrompt);
-      const slides = rawContent.split("---POST---").map((s) => s.trim()).filter((s) => s.length > 10);
+      let slides = rawContent.split("---POST---").map((s) => s.trim()).filter((s) => s.length > 10);
+      if (slides.length <= 1) {
+        slides = rawContent.split(/\n{2,}/).map((s) => s.trim()).filter((s) => s.length > 10);
+      }
       return NextResponse.json({ success: true, slides, topic, tone: tone || "casual", generatedAt: new Date().toISOString() });
     }
 
@@ -814,11 +787,13 @@ export async function POST(request: NextRequest) {
     let userPlan: string | undefined;
     let creditCost: number | undefined;
     if (userId) {
-      const user = await db.user.findUnique({ where: { id: userId }, select: { credits: true, plan: true } });
-      if (user) {
-        creditsRemaining = user.credits;
-        userPlan = user.plan;
-      }
+      try {
+        const user = await db.user.findUnique({ where: { id: userId }, select: { credits: true, plan: true } });
+        if (user) {
+          creditsRemaining = user.credits;
+          userPlan = user.plan;
+        }
+      } catch {}
     }
 
     return NextResponse.json({
