@@ -160,7 +160,6 @@ const APP_TABS = [
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'templates', label: 'Templates', icon: BookTemplate },
   { id: 'images', label: 'AI Images', icon: ImageIcon },
-  { id: 'voices', label: 'Brand Voices', icon: AudioLines },
 ] as const;
 
 const FEATURES = [
@@ -529,6 +528,9 @@ function HomeContent() {
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<number | null>(null);
+  const [showCalendarAddPost, setShowCalendarAddPost] = useState(false);
+  const [calendarNewPostContent, setCalendarNewPostContent] = useState('');
+  const [calendarNewPostPlatform, setCalendarNewPostPlatform] = useState('twitter');
 
   /* Templates state */
   const [customTemplates, setCustomTemplates] = useState<PostTemplate[]>([]);
@@ -674,13 +676,12 @@ function HomeContent() {
     setGeneratedPosts([]);
 
     try {
-      const allResults: GeneratedPost[] = [];
       const activeVoiceObj = [...DEFAULT_BRAND_VOICES, ...customVoices].find(v => v.id === activeVoice);
 
-      for (const platform of selectedPlatforms) {
-        let res: Response;
-        try {
-          res = await fetch('/api/generate', {
+      // Generate for ALL platforms in parallel using Promise.allSettled
+      const platformResults = await Promise.allSettled(
+        selectedPlatforms.map(async (platform) => {
+          const res = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -693,52 +694,65 @@ function HomeContent() {
               userId: status === 'authenticated' ? (session?.user as any)?.id : undefined,
             }),
           });
-        } catch (fetchErr) {
-          const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
-          toast.error('Network error - check your connection');
-          setIsGenerating(false);
-          return;
+
+          const data = await res.json();
+
+          if (res.status === 403) {
+            throw new Error(data.error || 'No credits remaining');
+          }
+
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || `Generation failed for ${platform}`);
+          }
+
+          return { platform, data };
+        })
+      );
+
+      // Collect results from all successful platform requests
+      const allResults: GeneratedPost[] = [];
+      const failedPlatforms: string[] = [];
+
+      for (let i = 0; i < platformResults.length; i++) {
+        const result = platformResults[i];
+        const platformName = PLATFORMS.find((p) => p.id === selectedPlatforms[i])?.name || selectedPlatforms[i];
+
+        if (result.status === 'fulfilled') {
+          const { data } = result.value;
+
+          if (data.creditsRemaining !== undefined) setCredits(data.creditsRemaining);
+          if (data.plan) setUserPlan(data.plan);
+
+          const posts: GeneratedPost[] = data.posts.map((content: string) => {
+            const viral = calculateViralScore(content);
+            return {
+              id: uid(),
+              content,
+              platform: data.platform || selectedPlatforms[i],
+              copied: false,
+              viralScore: viral.score,
+              estimatedLikes: viral.likes,
+              estimatedComments: viral.comments,
+              estimatedShares: viral.shares,
+            };
+          });
+
+          allResults.push(...posts.slice(0, postCount));
+        } else {
+          failedPlatforms.push(platformName);
         }
-
-        const data = await res.json();
-
-        if (res.status === 403) {
-          toast.error(data.error || 'No credits remaining. Upgrade your plan!');
-          setCredits(data.creditsRemaining ?? 0);
-          setIsGenerating(false);
-          return;
-        }
-
-        if (!res.ok || !data.success) {
-          toast.error(data.error || `Generation failed for ${platform}`);
-          continue;
-        }
-
-        if (data.creditsRemaining !== undefined) setCredits(data.creditsRemaining);
-        if (data.plan) setUserPlan(data.plan);
-
-        const posts: GeneratedPost[] = data.posts.map((content: string) => {
-          const viral = calculateViralScore(content);
-          return {
-            id: uid(),
-            content,
-            platform: data.platform,
-            copied: false,
-            viralScore: viral.score,
-            estimatedLikes: viral.likes,
-            estimatedComments: viral.comments,
-            estimatedShares: viral.shares,
-          };
-        });
-
-        allResults.push(...posts.slice(0, postCount));
       }
 
       setGeneratedPosts(allResults);
       setGenerationsUsed((prev) => prev + 1);
 
       const platformNames = selectedPlatforms.map((id) => PLATFORMS.find((p) => p.id === id)?.name).filter(Boolean).join(', ');
-      toast.success(`Generated ${allResults.length} posts across ${platformNames}!`);
+      if (allResults.length > 0) {
+        toast.success(`Generated ${allResults.length} posts across ${platformNames}!`);
+      }
+      if (failedPlatforms.length > 0) {
+        toast.error(`Failed for: ${failedPlatforms.join(', ')}. These platforms may be slower — try them individually.`);
+      }
     } catch {
       toast.error('Network error. Please check your connection and try again.');
     } finally {
@@ -986,6 +1000,21 @@ function HomeContent() {
     setCalendarPosts(updated);
     saveCalendarPosts(updated);
     toast.success('Post added to calendar!');
+  }
+
+  function addManualCalendarPost(day: number) {
+    if (!calendarNewPostContent.trim()) {
+      toast.error('Enter post content first');
+      return;
+    }
+    const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const newPost: CalendarPost = { id: uid(), date: dateStr, content: calendarNewPostContent.trim().slice(0, 100), platform: calendarNewPostPlatform };
+    const updated = [...calendarPosts, newPost];
+    setCalendarPosts(updated);
+    saveCalendarPosts(updated);
+    setCalendarNewPostContent('');
+    setShowCalendarAddPost(false);
+    toast.success(`Post scheduled for ${calendarMonthName} ${day}!`);
   }
 
   /* ---------------------------------------------------------------- */
@@ -1746,7 +1775,7 @@ function HomeContent() {
                                       placeholder="Describe your brand voice or paste examples of your past posts..."
                                       className="min-h-[80px] resize-none rounded-xl text-sm leading-relaxed"
                                     />
-                                    <p className="text-[10px] text-muted-foreground mt-2">Pro Tip: Or use pre-built brand voices in the <button onClick={() => { setActiveTab('voices'); setShowBrandVoice(false); }} className="text-orange-500 hover:underline cursor-pointer">Brand Voices</button> tab.</p>
+                                    <p className="text-[10px] text-muted-foreground mt-2">Pro Tip: Toggle custom brand voice above or create your own in the settings.</p>
                                   </div>
                                 </motion.div>
                               )}
@@ -2310,10 +2339,11 @@ function HomeContent() {
                             return (
                               <button
                                 key={day}
-                                onClick={() => setSelectedCalendarDay(isSelected ? null : day)}
+                                onClick={() => { setSelectedCalendarDay(isSelected ? null : day); setShowCalendarAddPost(false); }}
                                 className={`h-12 sm:h-16 rounded-lg text-xs font-medium transition-all cursor-pointer relative flex flex-col items-center justify-center gap-0.5 ${
                                   isSelected ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 border border-orange-300' :
                                   isToday ? 'bg-primary text-primary-foreground' :
+                                  dayPosts.length > 0 ? 'hover:bg-muted border border-orange-200' :
                                   'hover:bg-muted border border-transparent'
                                 }`}
                               >
@@ -2330,13 +2360,59 @@ function HomeContent() {
                           })}
                         </div>
 
-                        {/* Selected Day Posts */}
+                        {/* Selected Day Panel */}
                         {selectedCalendarDay && (
                           <div className="mt-6 border-t border-border/50 pt-4">
-                            <h4 className="text-sm font-semibold mb-3">
-                              Posts for {calendarMonthName} {selectedCalendarDay}
-                              {getPostsForDay(selectedCalendarDay).length === 0 && ' — No posts scheduled'}
-                            </h4>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-semibold">
+                                Posts for {calendarMonthName} {selectedCalendarDay}
+                                {getPostsForDay(selectedCalendarDay).length === 0 && !showCalendarAddPost && ' — No posts scheduled'}
+                              </h4>
+                              {!showCalendarAddPost && (
+                                <Button size="sm" variant="outline" onClick={() => setShowCalendarAddPost(true)} className="cursor-pointer text-xs rounded-lg">
+                                  <Plus className="h-3 w-3 mr-1" /> Schedule Post
+                                </Button>
+                              )}
+                            </div>
+
+                            {/* Add Post Form */}
+                            {showCalendarAddPost && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mb-4 p-4 rounded-xl border border-orange-200 dark:border-orange-500/30 bg-orange-50/50 dark:bg-orange-500/5 space-y-3"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-medium text-orange-600 dark:text-orange-400">Schedule a new post for {calendarMonthName} {selectedCalendarDay}</span>
+                                  <button onClick={() => setShowCalendarAddPost(false)} className="p-1 rounded hover:bg-muted cursor-pointer"><X className="h-3 w-3" /></button>
+                                </div>
+                                <div className="flex gap-2">
+                                  <select
+                                    value={calendarNewPostPlatform}
+                                    onChange={(e) => setCalendarNewPostPlatform(e.target.value)}
+                                    className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
+                                  >
+                                    {PLATFORMS.map((p) => (
+                                      <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <Textarea
+                                  value={calendarNewPostContent}
+                                  onChange={(e) => setCalendarNewPostContent(e.target.value)}
+                                  placeholder="Write your post content here..."
+                                  className="min-h-[60px] resize-none rounded-xl text-sm"
+                                />
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => { setShowCalendarAddPost(false); setCalendarNewPostContent(''); }} className="cursor-pointer text-xs rounded-lg">Cancel</Button>
+                                  <Button size="sm" onClick={() => addManualCalendarPost(selectedCalendarDay)} disabled={!calendarNewPostContent.trim()} className="cursor-pointer text-xs rounded-lg gradient-brand text-white border-0">
+                                    <CalendarClock className="h-3 w-3 mr-1" /> Schedule
+                                  </Button>
+                                </div>
+                              </motion.div>
+                            )}
+
+                            {/* Existing Posts for Day */}
                             {getPostsForDay(selectedCalendarDay).length > 0 && (
                               <div className="space-y-2 max-h-64 overflow-y-auto">
                                 {getPostsForDay(selectedCalendarDay).map((post) => (
@@ -2358,6 +2434,13 @@ function HomeContent() {
                                 ))}
                               </div>
                             )}
+                          </div>
+                        )}
+
+                        {/* No day selected hint */}
+                        {!selectedCalendarDay && (
+                          <div className="mt-6 border-t border-border/50 pt-4 text-center">
+                            <p className="text-xs text-muted-foreground">Click any date to view or schedule posts. You can also add posts from the Generate tab using the calendar icon.</p>
                           </div>
                         )}
 
@@ -2501,8 +2584,9 @@ function HomeContent() {
                         <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
                           <ImageIcon className="h-5 w-5 text-orange-500" />
                           AI Image Generator
+                          <span className="ml-2 px-2 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400 rounded-full">BETA</span>
                         </h3>
-                        <p className="text-sm text-muted-foreground mb-4">Generate stunning images for your social media posts</p>
+                        <p className="text-sm text-muted-foreground mb-4">Generate images for your social media posts using free AI. <span className="text-yellow-600 dark:text-yellow-400 font-medium">Beta version — for testing purposes only. Results may vary.</span></p>
                         <div className="flex gap-3">
                           <Textarea
                             value={imagePrompt}
@@ -2564,117 +2648,6 @@ function HomeContent() {
                   </motion.div>
                 )}
 
-                {/* ====================================================== */}
-                {/*  TAB: Brand Voices                                       */}
-                {/* ====================================================== */}
-                {activeTab === 'voices' && (
-                  <motion.div key="voices" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-4xl mx-auto">
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-lg font-semibold flex items-center gap-2">
-                        <AudioLines className="h-5 w-5 text-orange-500" />
-                        Brand Voice Profiles
-                      </h3>
-                      <Button size="sm" variant="outline" onClick={() => setShowNewVoice(true)} className="cursor-pointer text-xs rounded-lg">
-                        <Plus className="h-3 w-3 mr-1" /> Create Voice
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {DEFAULT_BRAND_VOICES.map((voice, i) => (
-                        <motion.div
-                          key={voice.id}
-                          initial={{ opacity: 0, y: 16 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05 }}
-                        >
-                          <Card
-                            className={`rounded-xl border-border/50 cursor-pointer transition-all h-full ${activeVoice === voice.id ? 'border-orange-400 bg-orange-50/50 dark:bg-orange-500/5 ring-2 ring-orange-400/20' : 'hover:border-orange-300/50 card-lift'}`}
-                            onClick={() => setActiveVoice(activeVoice === voice.id ? null : voice.id)}
-                          >
-                            <CardContent className="p-5">
-                              <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-sm font-semibold">{voice.name}</h4>
-                                {activeVoice === voice.id && <Check className="h-4 w-4 text-orange-500" />}
-                              </div>
-                              <p className="text-xs text-muted-foreground leading-relaxed">{voice.description}</p>
-                              <div className="mt-3">
-                                <Badge variant="secondary" className={`text-[10px] ${activeVoice === voice.id ? 'bg-orange-500 text-white' : ''}`}>
-                                  {activeVoice === voice.id ? 'Active' : 'Click to activate'}
-                                </Badge>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      ))}
-
-                      {customVoices.map((voice) => (
-                        <Card
-                          key={voice.id}
-                          className={`rounded-xl border-border/50 cursor-pointer transition-all h-full ${activeVoice === voice.id ? 'border-orange-400 bg-orange-50/50 dark:bg-orange-500/5 ring-2 ring-orange-400/20' : 'hover:border-orange-300/50'}`}
-                          onClick={() => setActiveVoice(activeVoice === voice.id ? null : voice.id)}
-                        >
-                          <CardContent className="p-5">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                                <PenTool className="h-3 w-3 text-orange-500" />
-                                {voice.name}
-                                {activeVoice === voice.id && <Check className="h-4 w-4 text-orange-500" />}
-                              </h4>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const updated = customVoices.filter(v => v.id !== voice.id);
-                                  setCustomVoices(updated);
-                                  saveCustomVoices(updated);
-                                  if (activeVoice === voice.id) setActiveVoice(null);
-                                  toast.success('Voice deleted');
-                                }}
-                                className="p-1 rounded hover:bg-destructive/10 cursor-pointer text-muted-foreground hover:text-destructive"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </div>
-                            <p className="text-xs text-muted-foreground">{voice.description}</p>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-
-                    {/* New Voice Modal */}
-                    <AnimatePresence>
-                      {showNewVoice && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-                          onClick={() => setShowNewVoice(false)}
-                        >
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="w-full max-w-md mx-4"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Card className="rounded-2xl shadow-2xl">
-                              <CardContent className="p-6 space-y-4">
-                                <h3 className="text-sm font-semibold">Create Brand Voice</h3>
-                                <input type="text" value={newVoiceName} onChange={(e) => setNewVoiceName(e.target.value)} placeholder="Voice name (e.g. 'My Brand')" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-                                <input type="text" value={newVoiceDesc} onChange={(e) => setNewVoiceDesc(e.target.value)} placeholder="Short description" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-                                <Textarea value={newVoicePrompt} onChange={(e) => setNewVoicePrompt(e.target.value)} placeholder="System prompt — describe the writing style, vocabulary, audience, and tone. E.g., 'Write like a friendly but authoritative tech reviewer who uses short sentences and occasional humor...'" className="min-h-[120px] resize-none rounded-xl text-sm" />
-                                <div className="flex gap-2">
-                                  <Button size="sm" variant="outline" onClick={() => setShowNewVoice(false)} className="flex-1 cursor-pointer rounded-lg">Cancel</Button>
-                                  <Button size="sm" onClick={saveNewVoice} className="flex-1 cursor-pointer rounded-lg gradient-brand text-white border-0">Save Voice</Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </motion.div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                )}
               </AnimatePresence>
             </motion.div>
           )}
