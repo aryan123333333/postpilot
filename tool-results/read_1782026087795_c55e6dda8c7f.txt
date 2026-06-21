@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import { useState, useRef, useEffect, Suspense } from 'react';
+     4→import { useSearchParams } from 'next/navigation';
+     5→import { motion, AnimatePresence } from 'framer-motion';
+     6→import { useSession, signIn, signOut } from 'next-auth/react';
+     7→import {
+     8→  Zap,
+     9→  Copy,
+    10→  Check,
+    11→  ChevronRight,
+    12→  Sparkles,
+    13→  Twitter,
+    14→  Linkedin,
+    15→  Instagram,
+    16→  Play,
+    17→  Youtube,
+    18→  ArrowRight,
+    19→  Star,
+    20→  RefreshCw,
+    21→  X,
+    22→  BarChart3,
+    23→  Globe,
+    24→  Palette,
+    25→  Loader2,
+    26→  MessageSquare,
+    27→  Hash,
+    28→  Clock,
+    29→  Send,
+    30→  CalendarClock,
+    31→  Wand2,
+    32→  FileText,
+    33→  Mic,
+    34→  Link2,
+    35→  ShieldCheck,
+    36→  Lightbulb,
+    37→  Layers,
+    38→  ChevronDown,
+    39→  Info,
+    40→  Shield,
+    41→  Activity,
+    42→  Users,
+    43→  Server,
+    44→  AlertTriangle,
+    45→  TrendingUp,
+    46→  Eye,
+    47→  MousePointerClick,
+    48→  LayoutDashboard,
+    49→  LogIn,
+    50→  LogOut,
+    51→  User,
+    52→  Mail,
+    53→  Lock,
+    54→  ArrowLeft,
+    55→} from 'lucide-react';
+    56→import { Button } from '@/components/ui/button';
+    57→import { Card, CardContent } from '@/components/ui/card';
+    58→import { Textarea } from '@/components/ui/textarea';
+    59→import { Badge } from '@/components/ui/badge';
+    60→import { toast } from 'sonner';
+    61→
+    62→/* ------------------------------------------------------------------ */
+    63→/*  Types                                                              */
+    64→/* ------------------------------------------------------------------ */
+    65→
+    66→interface GeneratedPost {
+    67→  id: string;
+    68→  content: string;
+    69→  platform: string;
+    70→  copied: boolean;
+    71→  scheduled?: boolean;
+    72→}
+    73→
+    74→interface PricingPlan {
+    75→  name: string;
+    76→  price: string;
+    77→  period: string;
+    78→  description: string;
+    79→  features: string[];
+    80→  cta: string;
+    81→  popular?: boolean;
+    82→}
+    83→
+    84→/* ------------------------------------------------------------------ */
+    85→/*  Data                                                               */
+    86→/* ------------------------------------------------------------------ */
+    87→
+    88→const PLATFORMS = [
+    89→  { id: 'twitter', name: 'Twitter / X', icon: Twitter, color: '#1DA1F2', desc: 'Short & punchy tweets' },
+    90→  { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: '#0A66C2', desc: 'Long pro posts' },
+    91→  { id: 'instagram', name: 'Instagram', icon: Instagram, color: '#E4405F', desc: 'Captions + hashtags' },
+    92→  { id: 'tiktok', name: 'TikTok', icon: Play, color: '#000000', desc: 'Viral short hooks' },
+    93→  { id: 'youtube-long', name: 'YT Long', icon: Youtube, color: '#FF0000', desc: 'Full video description' },
+    94→  { id: 'youtube-shorts', name: 'YT Shorts', icon: Play, color: '#FF0000', desc: 'Short punchy hooks' },
+    95→] as const;
+    96→
+    97→const TONES = [
+    98→  { id: 'professional', label: 'Serious', emoji: '\ud83d\udcbc' },
+    99→  { id: 'casual', label: 'Chill', emoji: '\ud83d\ude0e' },
+   100→  { id: 'humorous', label: 'Funny', emoji: '\ud83d\ude02' },
+   101→  { id: 'inspirational', label: 'Motivation', emoji: '\ud83d\ude80' },
+   102→  { id: 'provocative', label: 'Bold', emoji: '\ud83d\udd25' },
+   103→  { id: 'educational', label: 'Teach', emoji: '\ud83d\udcda' },
+   104→] as const;
+   105→
+   106→const FEATURES = [
+   107→  {
+   108→    icon: Zap,
+   109→    title: 'Instant Generation',
+   110→    description: 'Generate weeks of social media content in under 30 seconds. Our AI understands platform algorithms, engagement patterns, and trending formats to produce posts that actually perform.',
+   111→  },
+   112→  {
+   113→    icon: Palette,
+   114→    title: 'Brand Voice Training',
+   115→    description: 'Describe your brand personality or paste your past posts — PostPilot learns your unique voice and generates every post in your authentic style. Never sound robotic again.',
+   116→  },
+   117→  {
+   118→    icon: Globe,
+   119→    title: '6-Platform Mastery',
+   120→    description: 'One input, six platform options. PostPilot automatically reformats and optimizes your content for Twitter/X, LinkedIn, Instagram, TikTok, YouTube Long Videos, and YouTube Shorts with platform-native formatting.',
+   121→  },
+   122→  {
+   123→    icon: BarChart3,
+   124→    title: 'Engagement Optimized',
+   125→    description: 'Every post is engineered with proven engagement hooks — pattern interrupts, open loops, power questions, and emotional triggers that make people stop scrolling and start engaging.',
+   126→  },
+   127→  {
+   128→    icon: FileText,
+   129→    title: 'Content Repurposing',
+   130→    description: 'Paste a blog article, video transcript, or any long-form content — PostPilot instantly breaks it down and creates dozens of unique social media posts across all platforms. One piece of content, infinite reach.',
+   131→  },
+   132→  {
+   133→    icon: Send,
+   134→    title: 'Schedule & Publish',
+   135→    description: 'One-click schedule or direct publish to your connected platforms. Connect Twitter, LinkedIn, and more — PostPilot handles the posting so you can focus on creating.',
+   136→  },
+   137→  {
+   138→    icon: Wand2,
+   139→    title: 'Smart Prompt Enhancer',
+   140→    description: 'Not sure how to phrase your topic? Our AI enhancer transforms a simple idea like "marketing tips" into a detailed, context-rich prompt that generates 10x better content.',
+   141→  },
+   142→  {
+   143→    icon: Layers,
+   144→    title: 'Multi-Platform Blast',
+   145→    description: 'Select multiple platforms at once and generate tailored content for each one simultaneously. Same topic, platform-optimized versions — all in one click.',
+   146→  },
+   147→  {
+   148→    icon: ShieldCheck,
+   149→    title: 'Abuse-Protected & Fast',
+   150→    description: 'Enterprise-grade rate limiting, clean API architecture, and edge-optimized delivery. Your content generates fast, securely, and reliably — every single time.',
+   151→  },
+   152→];
+   153→
+   154→const STEPS = [
+   155→  {
+   156→    step: '01',
+   157→    title: 'Describe Your Topic',
+   158→    description: 'Enter a topic, paste an article URL, drop a transcript, or use our AI prompt enhancer. PostPilot understands context and creates platform-ready content automatically.',
+   159→  },
+   160→  {
+   161→    step: '02',
+   162→    title: 'Choose Platform, Tone & Voice',
+   163→    description: 'Select one or more platforms, pick your vibe, and optionally train the AI on your brand voice. PostPilot adapts to every platform culture and your personal style.',
+   164→  },
+   165→  {
+   166→    step: '03',
+   167→    title: 'Generate, Schedule & Publish',
+   168→    description: 'AI generates multiple unique posts instantly. Edit, copy, schedule for later, or publish directly to your connected platforms. Content creation on autopilot.',
+   169→  },
+   170→];
+   171→
+   172→const PRICING: PricingPlan[] = [
+   173→  {
+   174→    name: 'Starter',
+   175→    price: 'Free',
+   176→    period: 'forever',
+   177→    description: 'Perfect for testing the waters',
+   178→    features: [
+   179→      '20 credits on sign-up',
+   180→      '1 credit per generation',
+   181→      'All 6 platforms',
+   182→      'All 6 tone presets',
+   183→      'Smart prompt enhancer (free)',
+   184→      'Community support',
+   185→    ],
+   186→    cta: 'Start Free',
+   187→  },
+   188→  {
+   189→    name: 'Pro',
+   190→    price: '$29',
+   191→    period: '/month',
+   192→    description: 'For creators & solopreneurs',
+   193→    features: [
+   194→      '500 credits per month',
+   195→      '1 credit per generation',
+   196→      'All 6 platforms + multi-platform blast',
+   197→      'Brand voice training',
+   198→      'Content repurposing',
+   199→      'Schedule & publish',
+   200→      'Priority support',
+   201→    ],
+   202→    cta: 'Go Pro',
+   203→    popular: true,
+   204→  },
+   205→  {
+   206→    name: 'Agency',
+   207→    price: '$99',
+   208→    period: '/month',
+   209→    description: 'For teams & agencies',
+   210→    features: [
+   211→      'Unlimited credits',
+   212→      'Everything in Pro',
+   213→      '10 brand voice profiles',
+   214→      'Team collaboration',
+   215→      'API access',
+   216→      'Analytics dashboard',
+   217→      'White-label exports',
+   218→      'Dedicated account manager',
+   219→    ],
+   220→    cta: 'Contact Sales',
+   221→  },
+   222→];
+   223→
+   224→const TESTIMONIALS = [
+   225→  {
+   226→    name: 'Sarah Chen',
+   227→    role: 'Content Creator, 250K followers',
+   228→    text: 'PostPilot cut my content creation time from 4 hours to 15 minutes. The brand voice training is insane — my audience can\'t tell the difference between my posts and AI-generated ones.',
+   229→    avatar: 'SC',
+   230→  },
+   231→  {
+   232→    name: 'Marcus Johnson',
+   233→    role: 'Marketing Director, TechFlow',
+   234→    text: 'We replaced our entire social media freelancing budget with PostPilot. The content repurposing feature alone saves us 20 hours a week. Better content at a fraction of the cost.',
+   235→    avatar: 'MJ',
+   236→  },
+   237→  {
+   238→    name: 'Elena Rodriguez',
+   239→    role: 'Solopreneur & Coach',
+   240→    text: 'I was spending $2K/month on content. Now I spend $29, schedule everything in one dashboard, and get better engagement. The multi-platform blast is a game-changer.',
+   241→    avatar: 'ER',
+   242→  },
+   243→];
+   244→
+   245→/* ------------------------------------------------------------------ */
+   246→/*  Logo Component                                                     */
+   247→/* ------------------------------------------------------------------ */
+   248→
+   249→function PostPilotLogo({ className }: { className?: string }) {
+   250→  return (
+   251→    <svg viewBox="0 0 32 32" fill="none" className={className || 'h-8 w-8'} xmlns="http://www.w3.org/2000/svg">
+   252→      <path d="M16 3C16 3 10 9 10 18C10 22 12.5 26 16 28C19.5 26 22 22 22 18C22 9 16 3 16 3Z" fill="url(#pg)" />
+   253→      <circle cx="16" cy="15" r="3" fill="white" opacity="0.9" />
+   254→      <path d="M10 18L7 23L10 21V18Z" fill="#F97316" />
+   255→      <path d="M22 18L25 23L22 21V18Z" fill="#F97316" />
+   256→      <path d="M14 26C14 26 16 30 16 30C16 30 18 26 18 26" fill="url(#fg)" />
+   257→      <defs>
+   258→        <linearGradient id="pg" x1="10" y1="3" x2="22" y2="28" gradientUnits="userSpaceOnUse">
+   259→          <stop stopColor="#F97316" />
+   260→          <stop offset="1" stopColor="#F59E0B" />
+   261→        </linearGradient>
+   262→        <linearGradient id="fg" x1="14" y1="26" x2="18" y2="30" gradientUnits="userSpaceOnUse">
+   263→          <stop stopColor="#EF4444" />
+   264→          <stop offset="1" stopColor="#F59E0B" />
+   265→        </linearGradient>
+   266→      </defs>
+   267→    </svg>
+   268→  );
+   269→}
+   270→
+   271→/* ------------------------------------------------------------------ */
+   272→/*  Helper: unique ID                                                  */
+   273→/* ------------------------------------------------------------------ */
+   274→
+   275→let idCounter = 0;
+   276→function uid() {
+   277→  return `post-${++idCounter}-${Date.now()}`;
+   278→}
+   279→
+   280→/* ------------------------------------------------------------------ */
+   281→/*  Admin Stats Types                                                  */
+   282→/* ------------------------------------------------------------------ */
+   283→
+   284→interface AdminStats {
+   285→  totalGenerations: number;
+   286→  totalPostsGenerated: number;
+   287→  generationsByPlatform: Record<string, number>;
+   288→  generationsByTone: Record<string, number>;
+   289→  generationsByMode: Record<string, number>;
+   290→  rateLimitedRequests: number;
+   291→  recentGenerations: {
+   292→    id: string;
+   293→    topic: string;
+   294→    platform: string;
+   295→    tone: string;
+   296→    count: number;
+   297→    postsGenerated: number;
+   298→    mode: string;
+   299→    timestamp: string;
+   300→    ip: string;
+   301→  }[];
+   302→  uptime: number;
+   303→}
+   304→
+   305→/* ------------------------------------------------------------------ */
+   306→/*  Main Page Component                                                */
+   307→/* ------------------------------------------------------------------ */
+   308→
+   309→function HomeContent() {
+   310→  const { data: session, status } = useSession();
+   311→  const searchParams = useSearchParams();
+   312→  const [activeView, setActiveView] = useState<'landing' | 'app' | 'admin'>('landing');
+   313→
+   314→  /* After sign-in, redirect to app view if callbackUrl had view=app */
+   315→  useEffect(() => {
+   316→    if (status === 'authenticated' && searchParams.get('view') === 'app') {
+   317→      setActiveView('app');
+   318→    }
+   319→  }, [status, searchParams]);
+   320→  const [showAuthModal, setShowAuthModal] = useState(false);
+   321→  const [topic, setTopic] = useState('');
+   322→  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['twitter']);
+   323→  const [selectedTone, setSelectedTone] = useState<string>('casual');
+   324→  const [postCount, setPostCount] = useState(3);
+   325→  const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
+   326→  const [isGenerating, setIsGenerating] = useState(false);
+   327→  const [isEnhancing, setIsEnhancing] = useState(false);
+   328→  const [mobileMenu, setMobileMenu] = useState(false);
+   329→  const [inputMode, setInputMode] = useState<'topic' | 'repurpose'>('topic');
+   330→  const [repurposeText, setRepurposeText] = useState('');
+   331→  const [brandVoice, setBrandVoice] = useState('');
+   332→  const [showBrandVoice, setShowBrandVoice] = useState(false);
+   333→  const [showScheduleModal, setShowScheduleModal] = useState<string | null>(null);
+   334→  const [scheduleDate, setScheduleDate] = useState('');
+   335→  const [scheduleTime, setScheduleTime] = useState('');
+   336→  const [generationsUsed, setGenerationsUsed] = useState(0);
+   337→  const [credits, setCredits] = useState<number | null>(null);
+   338→  const [userPlan, setUserPlan] = useState<string | null>(null);
+   339→  const resultsRef = useRef<HTMLDivElement>(null);
+   340→
+   341→  /* Require sign-in before accessing the app */
+   342→  const goToApp = () => {
+   343→    if (status === 'authenticated') {
+   344→      setActiveView('app');
+   345→    } else {
+   346→      signIn('google');
+   347→    }
+   348→  };
+   349→
+   350→  /* Auto-scroll to results */
+   351→  useEffect(() => {
+   352→    if (generatedPosts.length > 0 && resultsRef.current) {
+   353→      resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+   354→    }
+   355→  }, [generatedPosts]);
+   356→
+   357→  /* Fetch user credits when authenticated */
+   358→  useEffect(() => {
+   359→    if (status === 'authenticated' && session?.user) {
+   360→      const userId = (session.user as any).id;
+   361→      const email = (session.user as any).email;
+   362→      fetch('/api/generate?userId=' + userId + '&email=' + encodeURIComponent(email))
+   363→        .then((r) => r.json())
+   364→        .then((data) => {
+   365→          setCredits(data.credits);
+   366→          setUserPlan(data.plan);
+   367→        })
+   368→        .catch(() => {});
+   369→    }
+   370→  }, [status, session]);
+   371→
+   372→  /* Fetch admin stats when admin view is active */
+   373→  useEffect(() => {
+   374→    if (activeView !== 'admin') return;
+   375→    setAdminLoading(true);
+   376→    fetch('/api/admin')
+   377→      .then((r) => r.json())
+   378→      .then((data) => setAdminStats(data))
+   379→      .catch(() => setAdminStats(null))
+   380→      .finally(() => setAdminLoading(false));
+   381→  }, [activeView]);
+   382→
+   383→  /* ---------------------------------------------------------------- */
+   384→  /*  Platform toggle (multi-select)                                   */
+   385→  /* ---------------------------------------------------------------- */
+   386→
+   387→  function togglePlatform(id: string) {
+   388→    setSelectedPlatforms((prev) =>
+   389→      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+   390→    );
+   391→  }
+   392→
+   393→  /* ---------------------------------------------------------------- */
+   394→  /*  Enhance Prompt handler                                           */
+   395→  /* ---------------------------------------------------------------- */
+   396→
+   397→  async function handleEnhance() {
+   398→    const text = inputMode === 'topic' ? topic.trim() : repurposeText.trim();
+   399→    if (!text || text.length < 3) {
+   400→      toast.error('Enter something first so the AI can enhance it');
+   401→      return;
+   402→    }
+   403→    setIsEnhancing(true);
+   404→    try {
+   405→      const res = await fetch('/api/generate', {
+   406→        method: 'POST',
+   407→        headers: { 'Content-Type': 'application/json' },
+   408→        body: JSON.stringify({
+   409→          topic: text,
+   410→          platform: 'linkedin',
+   411→          tone: 'educational',
+   412→          count: 1,
+   413→          mode: 'enhance',
+   414→        }),
+   415→      });
+   416→      const data = await res.json();
+   417→      if (data.success && data.enhanced) {
+   418→        if (inputMode === 'topic') {
+   419→          setTopic(data.enhanced);
+   420→        } else {
+   421→          setRepurposeText(data.enhanced);
+   422→        }
+   423→        toast.success('Prompt enhanced! Your topic is now more detailed and specific.');
+   424→      } else {
+   425→        toast.error('Could not enhance. Try again.');
+   426→      }
+   427→    } catch {
+   428→      toast.error('Network error while enhancing.');
+   429→    } finally {
+   430→      setIsEnhancing(false);
+   431→    }
+   432→  }
+   433→
+   434→  /* ---------------------------------------------------------------- */
+   435→  /*  Generate handler                                                 */
+   436→  /* ---------------------------------------------------------------- */
+   437→
+   438→  async function handleGenerate() {
+   439→    const mainTopic = inputMode === 'topic' ? topic.trim() : repurposeText.trim();
+   440→    if (!mainTopic || mainTopic.length < 3) {
+   441→      toast.error('Please enter a topic or content to repurpose (at least 3 characters)');
+   442→      return;
+   443→    }
+   444→    if (selectedPlatforms.length === 0) {
+   445→      toast.error('Select at least one platform');
+   446→      return;
+   447→    }
+   448→
+   449→    setIsGenerating(true);
+   450→    setGeneratedPosts([]);
+   451→
+   452→    try {
+   453→      // If multi-platform, generate for each selected platform
+   454→      const allResults: GeneratedPost[] = [];
+   455→      
+   456→      for (const platform of selectedPlatforms) {
+   457→        const res = await fetch('/api/generate', {
+   458→          method: 'POST',
+   459→          headers: { 'Content-Type': 'application/json' },
+   460→          body: JSON.stringify({
+   461→            topic: mainTopic,
+   462→            platform,
+   463→            tone: selectedTone,
+   464→            count: postCount,
+   465→            mode: inputMode === 'repurpose' ? 'repurpose' : 'generate',
+   466→            brandVoice: brandVoice.trim() || undefined,
+   467→            userId: status === 'authenticated' ? (session?.user as any)?.id : undefined,
+   468→          }),
+   469→        });
+   470→
+   471→        const data = await res.json();
+   472→
+   473→        if (res.status === 403) {
+   474→          toast.error(data.error || 'No credits remaining. Upgrade your plan!');
+   475→          setCredits(data.creditsRemaining ?? 0);
+   476→          setIsGenerating(false);
+   477→          return;
+   478→        }
+   479→
+   480→        if (!res.ok || !data.success) {
+   481→          toast.error(data.error || `Generation failed for ${platform}`);
+   482→          continue;
+   483→        }
+   484→
+   485→        // Update credits from response
+   486→        if (data.creditsRemaining !== undefined) {
+   487→          setCredits(data.creditsRemaining);
+   488→        }
+   489→        if (data.plan) setUserPlan(data.plan);
+   490→
+   491→        const posts: GeneratedPost[] = data.posts.map((content: string) => ({
+   492→          id: uid(),
+   493→          content,
+   494→          platform: data.platform,
+   495→          copied: false,
+   496→        }));
+   497→
+   498→        allResults.push(...posts.slice(0, postCount));
+   499→      }
+   500→
+   501→      setGeneratedPosts(allResults);
+   502→      setGenerationsUsed((prev) => prev + 1);
+   503→      
+   504→      const platformNames = selectedPlatforms.map((id) => PLATFORMS.find((p) => p.id === id)?.name).filter(Boolean).join(', ');
+   505→      toast.success(`Generated ${allResults.length} posts across ${platformNames}!`);
+   506→    } catch {
+   507→      toast.error('Network error. Please check your connection and try again.');
+   508→    } finally {
+   509→      setIsGenerating(false);
+   510→    }
+   511→  }
+   512→
+   513→  /* ---------------------------------------------------------------- */
+   514→  /*  Copy handler                                                     */
+   515→  /* ---------------------------------------------------------------- */
+   516→
+   517→  function handleCopy(postId: string, text: string) {
+   518→    navigator.clipboard.writeText(text).then(() => {
+   519→      setGeneratedPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, copied: true } : p)));
+   520→      toast.success('Copied to clipboard!');
+   521→      setTimeout(() => {
+   522→        setGeneratedPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, copied: false } : p)));
+   523→      }, 2000);
+   524→    });
+   525→  }
+   526→
+   527→  /* ---------------------------------------------------------------- */
+   528→  /*  Schedule handler                                                 */
+   529→  /* ---------------------------------------------------------------- */
+   530→
+   531→  function handleSchedule(postId: string) {
+   532→    if (!scheduleDate || !scheduleTime) {
+   533→      toast.error('Pick a date and time first');
+   534→      return;
+   535→    }
+   536→    const scheduledFor = `${scheduleDate} at ${scheduleTime}`;
+   537→    setGeneratedPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, scheduled: true } : p)));
+   538→    setShowScheduleModal(null);
+   539→    toast.success(`Scheduled for ${scheduledFor}!`);
+   540→    setScheduleDate('');
+   541→    setScheduleTime('');
+   542→  }
+   543→
+   544→  function handlePublishNow(postId: string) {
+   545→    const post = generatedPosts.find((p) => p.id === postId);
+   546→    const platformName = PLATFORMS.find((p) => p.id === post?.platform)?.name || 'platform';
+   547→    toast.success(`Published to ${platformName}! (Connect your account in Settings)`);
+   548→  }
+   549→
+   550→  /* ---------------------------------------------------------------- */
+   551→  /*  Clear results                                                    */
+   552→  /* ---------------------------------------------------------------- */
+   553→
+   554→  function handleClear() {
+   555→    setGeneratedPosts([]);
+   556→    setTopic('');
+   557→    setRepurposeText('');
+   558→  }
+   559→
+   560→  /* ---------------------------------------------------------------- */
+   561→  /*  Platform icon component                                          */
+   562→  /* ---------------------------------------------------------------- */
+   563→
+   564→  const platformIcon = (platformId: string, className?: string) => {
+   565→    const p = PLATFORMS.find((x) => x.id === platformId);
+   566→    if (!p) return null;
+   567→    const Icon = p.icon;
+   568→    return <Icon className={className || 'h-5 w-5'} style={{ color: p.color }} />;
+   569→  };
+   570→
+   571→  /* ================================================================= */
+   572→  /*  RENDER                                                           */
+   573→  /* ================================================================= */
+   574→
+   575→  return (
+   576→    <div className="min-h-screen flex flex-col bg-background">
+   577→      {/* ============================================================ */}
+   578→      {/*  NAVBAR                                                       */}
+   579→      {/* ============================================================ */}
+   580→      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+   581→        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+   582→          {/* Logo */}
+   583→          <button onClick={() => setActiveView('landing')} className="flex items-center gap-2.5 cursor-pointer group">
+   584→            <PostPilotLogo className="h-9 w-9" />
+   585→            <span className="text-lg font-bold tracking-tight">PostPilot</span>
+   586→          </button>
+   587→
+   588→          {/* Desktop Nav */}
+   589→          <nav className="hidden md:flex items-center gap-1">
+   590→            {['Features', 'How It Works', 'Pricing'].map((item) => (
+   591→              <button
+   592→                key={item}
+   593→                onClick={() => {
+   594→                  const id = item.toLowerCase().replace(/\s+/g, '-');
+   595→                  const el = document.getElementById(id);
+   596→                  el?.scrollIntoView({ behavior: 'smooth' });
+   597→                }}
+   598→                className="px-3.5 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-all cursor-pointer"
+   599→              >
+   600→                {item}
+   601→              </button>
+   602→            ))}
+   603→          </nav>
+   604→
+   605→          {/* CTA + Mobile Toggle */}
+   606→          <div className="flex items-center gap-3">
+   607→            {credits !== null && (
+   608→              <Badge variant="secondary" className="hidden sm:flex text-xs gap-1.5">
+   609→                <Zap className="h-3 w-3 text-orange-500" />
+   610→                {credits > 0 ? `${credits} credits` : 'Upgrade'}
+   611→              </Badge>
+   612→            )}
+   613→
+   614→            {/* Auth: User avatar or Login button */}
+   615→            {status === 'authenticated' && session?.user ? (
+   616→              <div className="relative group">
+   617→                <button
+   618→                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+   619→                  onClick={() => setShowAuthModal(true)}
+   620→                >
+   621→                  {session.user.image ? (
+   622→                    <img src={session.user.image} alt="" className="h-7 w-7 rounded-full border border-border" />
+   623→                  ) : (
+   624→                    <div className="h-7 w-7 rounded-full gradient-brand flex items-center justify-center text-white text-xs font-bold">
+   625→                      {session.user.name?.charAt(0)?.toUpperCase() || 'U'}
+   626→                    </div>
+   627→                  )}
+   628→                  <span className="hidden sm:inline text-xs font-medium max-w-[100px] truncate">
+   629→                    {session.user.name?.split(' ')[0]}
+   630→                  </span>
+   631→                </button>
+   632→              </div>
+   633→            ) : (
+   634→              <Button
+   635→                variant="ghost"
+   636→                size="sm"
+   637→                onClick={() => signIn('google')}
+   638→                className="cursor-pointer text-xs gap-1.5"
+   639→              >
+   640→                <LogIn className="h-4 w-4" />
+   641→                <span className="hidden sm:inline">Sign In</span>
+   642→              </Button>
+   643→            )}
+   644→
+   645→            <Button
+   646→              onClick={goToApp}
+   647→              className="gradient-brand text-white border-0 hover:opacity-90 cursor-pointer"
+   648→              size="sm"
+   649→            >
+   650→              <Sparkles className="h-4 w-4 mr-1.5" />
+   651→              Try Free
+   652→            </Button>
+   653→            <button
+   654→              onClick={() => setMobileMenu(!mobileMenu)}
+   655→              className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+   656→            >
+   657→              {mobileMenu ? <X className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+   658→            </button>
+   659→          </div>
+   660→        </div>
+   661→
+   662→        {/* Mobile Menu */}
+   663→        <AnimatePresence>
+   664→          {mobileMenu && (
+   665→            <motion.div
+   666→              initial={{ height: 0, opacity: 0 }}
+   667→              animate={{ height: 'auto', opacity: 1 }}
+   668→              exit={{ height: 0, opacity: 0 }}
+   669→              className="md:hidden border-t border-border/50 bg-background overflow-hidden"
+   670→            >
+   671→              <div className="px-4 py-3 space-y-1">
+   672→                {['Features', 'How It Works', 'Pricing'].map((item) => (
+   673→                  <button
+   674→                    key={item}
+   675→                    onClick={() => {
+   676→                      setMobileMenu(false);
+   677→                      const id = item.toLowerCase().replace(/\s+/g, '-');
+   678→                      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+   679→                    }}
+   680→                    className="block w-full text-left px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-all cursor-pointer"
+   681→                  >
+   682→                    {item}
+   683→                  </button>
+   684→                ))}
+   685→                {credits !== null && (
+   686→                  <div className="px-3 py-2 text-xs text-muted-foreground">
+   687→                    <Zap className="h-3 w-3 text-orange-500 inline mr-1" />
+   688→                    {credits > 0 ? `${credits} credits remaining` : 'Upgrade for more credits'}
+   689→                  </div>
+   690→                )}
+   691→              </div>
+   692→            </motion.div>
+   693→          )}
+   694→        </AnimatePresence>
+   695→      </header>
+   696→
+   697→      {/* ============================================================ */}
+   698→      {/*  MAIN CONTENT                                                  */}
+   699→      {/* ============================================================ */}
+   700→      <main className="flex-1">
+   701→        <AnimatePresence mode="wait">
+   702→          {/* -------------------------------------------------------- */}
+   703→          {/*  LANDING PAGE                                              */}
+   704→          {/* -------------------------------------------------------- */}
+   705→          {activeView === 'landing' && (
+   706→            <motion.div
+   707→              key="landing"
+   708→              initial={{ opacity: 0 }}
+   709→              animate={{ opacity: 1 }}
+   710→              exit={{ opacity: 0 }}
+   711→              transition={{ duration: 0.3 }}
+   712→            >
+   713→              {/* HERO */}
+   714→              <section className="relative overflow-hidden">
+   715→                {/* Background gradient */}
+   716→                <div className="absolute inset-0 -z-10">
+   717→                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-gradient-to-br from-orange-200/40 via-amber-100/30 to-transparent blur-3xl" />
+   718→                  <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-gradient-to-tl from-orange-100/20 to-transparent blur-3xl" />
+   719→                </div>
+   720→
+   721→                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pt-28 lg:pb-32">
+   722→                  <div className="text-center max-w-4xl mx-auto">
+   723→                    {/* Badge */}
+   724→                    <motion.div
+   725→                      initial={{ opacity: 0, y: 20 }}
+   726→                      animate={{ opacity: 1, y: 0 }}
+   727→                      transition={{ duration: 0.5 }}
+   728→                    >
+   729→                      <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium rounded-full">
+   730→                        <Sparkles className="h-3.5 w-3.5 mr-1.5 text-orange-500" />
+   731→                        Trusted by 12,000+ creators & brands
+   732→                      </Badge>
+   733→                    </motion.div>
+   734→
+   735→                    {/* Headline */}
+   736→                    <motion.h1
+   737→                      initial={{ opacity: 0, y: 20 }}
+   738→                      animate={{ opacity: 1, y: 0 }}
+   739→                      transition={{ duration: 0.5, delay: 0.1 }}
+   740→                      className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.1]"
+   741→                    >
+   742→                      Turn{' '}
+   743→                      <span className="gradient-text">one idea</span>
+   744→                      <br className="hidden sm:block" />
+   745→                      {' '}into viral content
+   746→                      <br className="hidden sm:block" />
+   747→                      {' '}for{' '}
+   748→                      <span className="gradient-text">every platform</span>
+   749→                    </motion.h1>
+   750→
+   751→                    {/* Subhead */}
+   752→                    <motion.p
+   753→                      initial={{ opacity: 0, y: 20 }}
+   754→                      animate={{ opacity: 1, y: 0 }}
+   755→                      transition={{ duration: 0.5, delay: 0.2 }}
+   756→                      className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
+   757→                    >
+   758→                      PostPilot is the AI content engine that generates platform-optimized social media posts
+   759→                      in seconds. Repurpose articles, train your brand voice, and schedule posts — all in one dashboard.
+   760→                    </motion.p>
+   761→
+   762→                    {/* CTA Buttons */}
+   763→                    <motion.div
+   764→                      initial={{ opacity: 0, y: 20 }}
+   765→                      animate={{ opacity: 1, y: 0 }}
+   766→                      transition={{ duration: 0.5, delay: 0.3 }}
+   767→                      className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+   768→                    >
+   769→                      <Button
+   770→                        size="lg"
+   771→                        onClick={goToApp}
+   772→                        className="gradient-brand text-white border-0 hover:opacity-90 px-8 py-6 text-base font-semibold cursor-pointer rounded-xl"
+   773→                      >
+   774→                        Start Generating — Free
+   775→                        <ArrowRight className="h-5 w-5 ml-2" />
+   776→                      </Button>
+   777→                      <Button
+   778→                        variant="outline"
+   779→                        size="lg"
+   780→                        onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+   781→                        className="rounded-xl px-8 py-6 text-base font-medium cursor-pointer"
+   782→                      >
+   783→                        See How It Works
+   784→                      </Button>
+   785→                    </motion.div>
+   786→
+   787→                    {/* Social proof */}
+   788→                    <motion.div
+   789→                      initial={{ opacity: 0 }}
+   790→                      animate={{ opacity: 1 }}
+   791→                      transition={{ duration: 0.5, delay: 0.5 }}
+   792→                      className="mt-12 flex items-center justify-center gap-6 text-sm text-muted-foreground"
+   793→                    >
+   794→                      <div className="flex items-center gap-1">
+   795→                        {[...Array(5)].map((_, i) => (
+   796→                          <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+   797→                        ))}
+   798→                      </div>
+   799→                      <span>4.9/5 from 2,400+ reviews</span>
+   800→                      <span className="hidden sm:inline">•</span>
+   801→                      <span className="hidden sm:inline">No credit card required</span>
+   802→                    </motion.div>
+   803→                  </div>
+   804→                </div>
+   805→              </section>
+   806→
+   807→              {/* FEATURES */}
+   808→              <section id="features" className="py-20 lg:py-28 bg-muted/30">
+   809→                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   810→                  <div className="text-center max-w-2xl mx-auto mb-16">
+   811→                    <Badge variant="secondary" className="mb-4">Features</Badge>
+   812→                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+   813→                      Everything you need to{' '}
+   814→                      <span className="gradient-text">dominate social</span>
+   815→                    </h2>
+   816→                    <p className="mt-4 text-lg text-muted-foreground">
+   817→                      PostPilot is not just another AI writer. It is a complete content engine with brand voice training, content repurposing, scheduling, and platform-native formatting.
+   818→                    </p>
+   819→                  </div>
+   820→
+   821→                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+   822→                    {FEATURES.map((feature, i) => (
+   823→                      <motion.div
+   824→                        key={feature.title}
+   825→                        initial={{ opacity: 0, y: 24 }}
+   826→                        whileInView={{ opacity: 1, y: 0 }}
+   827→                        viewport={{ once: true }}
+   828→                        transition={{ duration: 0.5, delay: i * 0.06 }}
+   829→                      >
+   830→                        <Card className="h-full border-border/50 card-lift rounded-2xl">
+   831→                          <CardContent className="p-6">
+   832→                            <div className="h-12 w-12 rounded-xl bg-brand-muted flex items-center justify-center mb-4">
+   833→                              <feature.icon className="h-6 w-6 text-orange-500" />
+   834→                            </div>
+   835→                            <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+   836→                            <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
+   837→                          </CardContent>
+   838→                        </Card>
+   839→                      </motion.div>
+   840→                    ))}
+   841→                  </div>
+   842→                </div>
+   843→              </section>
+   844→
+   845→              {/* HOW IT WORKS */}
+   846→              <section id="how-it-works" className="py-20 lg:py-28">
+   847→                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   848→                  <div className="text-center max-w-2xl mx-auto mb-16">
+   849→                    <Badge variant="secondary" className="mb-4">How It Works</Badge>
+   850→                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+   851→                      From idea to published in{' '}
+   852→                      <span className="gradient-text">30 seconds</span>
+   853→                    </h2>
+   854→                    <p className="mt-4 text-lg text-muted-foreground">
+   855→                      Three simple steps. Zero learning curve. Start creating and publishing viral content immediately.
+   856→                    </p>
+   857→                  </div>
+   858→
+   859→                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+   860→                    {STEPS.map((step, i) => (
+   861→                      <motion.div
+   862→                        key={step.step}
+   863→                        initial={{ opacity: 0, y: 24 }}
+   864→                        whileInView={{ opacity: 1, y: 0 }}
+   865→                        viewport={{ once: true }}
+   866→                        transition={{ duration: 0.5, delay: i * 0.15 }}
+   867→                        className="relative"
+   868→                      >
+   869→                        <div className="flex items-start gap-4">
+   870→                          <div className="flex-shrink-0 h-14 w-14 rounded-2xl gradient-brand flex items-center justify-center text-white font-bold text-xl shadow-lg">
+   871→                            {step.step}
+   872→                          </div>
+   873→                          <div>
+   874→                            <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
+   875→                            <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
+   876→                          </div>
+   877→                        </div>
+   878→                      </motion.div>
+   879→                    ))}
+   880→                  </div>
+   881→                </div>
+   882→              </section>
+   883→
+   884→              {/* PRICING */}
+   885→              <section id="pricing" className="py-20 lg:py-28 bg-muted/30">
+   886→                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   887→                  <div className="text-center max-w-2xl mx-auto mb-16">
+   888→                    <Badge variant="secondary" className="mb-4">Pricing</Badge>
+   889→                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+   890→                      Simple pricing,{' '}
+   891→                      <span className="gradient-text">serious results</span>
+   892→                    </h2>
+   893→                    <p className="mt-4 text-lg text-muted-foreground">
+   894→                      Start free with 20 credits. Each generation costs 1 credit. Upgrade to Pro for 500 credits and unlock enterprise features.
+   895→                    </p>
+   896→                  </div>
+   897→
+   898→                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+   899→                    {PRICING.map((plan, i) => (
+   900→                      <motion.div
+   901→                        key={plan.name}
+   902→                        initial={{ opacity: 0, y: 24 }}
+   903→                        whileInView={{ opacity: 1, y: 0 }}
+   904→                        viewport={{ once: true }}
+   905→                        transition={{ duration: 0.5, delay: i * 0.1 }}
+   906→                        className={plan.popular ? 'md:-mt-4 md:mb-0' : ''}
+   907→                      >
+   908→                        <Card className={`h-full rounded-2xl relative ${plan.popular ? 'border-2 border-orange-400 shadow-lg soft-glow' : 'border-border/50'}`}>
+   909→                          {plan.popular && (
+   910→                            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+   911→                              <Badge className="gradient-brand text-white border-0 px-4 py-1">Most Popular</Badge>
+   912→                            </div>
+   913→                          )}
+   914→                          <CardContent className="p-6 pt-8">
+   915→                            <h3 className="text-lg font-semibold">{plan.name}</h3>
+   916→                            <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
+   917→                            <div className="mt-4 flex items-baseline gap-1">
+   918→                              <span className="text-4xl font-bold">{plan.price}</span>
+   919→                              <span className="text-sm text-muted-foreground">{plan.period}</span>
+   920→                            </div>
+   921→                            <ul className="mt-6 space-y-3">
+   922→                              {plan.features.map((f) => (
+   923→                                <li key={f} className="flex items-start gap-2.5 text-sm">
+   924→                                  <Check className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
+   925→                                  <span className="text-muted-foreground">{f}</span>
+   926→                                </li>
+   927→                              ))}
+   928→                            </ul>
+   929→                            <Button
+   930→                              className={`mt-8 w-full cursor-pointer rounded-xl ${plan.popular ? 'gradient-brand text-white border-0 hover:opacity-90' : ''}`}
+   931→                              variant={plan.popular ? 'default' : 'outline'}
+   932→                              onClick={goToApp}
+   933→                            >
+   934→                              {plan.cta}
+   935→                              {plan.popular && <ArrowRight className="h-4 w-4 ml-1.5" />}
+   936→                            </Button>
+   937→                          </CardContent>
+   938→                        </Card>
+   939→                      </motion.div>
+   940→                    ))}
+   941→                  </div>
+   942→                </div>
+   943→              </section>
+   944→
+   945→              {/* TESTIMONIALS */}
+   946→              <section className="py-20 lg:py-28">
+   947→                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   948→                  <div className="text-center max-w-2xl mx-auto mb-16">
+   949→                    <Badge variant="secondary" className="mb-4">Testimonials</Badge>
+   950→                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+   951→                      Loved by creators{' '}
+   952→                      <span className="gradient-text">worldwide</span>
+   953→                    </h2>
+   954→                  </div>
+   955→
+   956→                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+   957→                    {TESTIMONIALS.map((t, i) => (
+   958→                      <motion.div
+   959→                        key={t.name}
+   960→                        initial={{ opacity: 0, y: 24 }}
+   961→                        whileInView={{ opacity: 1, y: 0 }}
+   962→                        viewport={{ once: true }}
+   963→                        transition={{ duration: 0.5, delay: i * 0.1 }}
+   964→                      >
+   965→                        <Card className="h-full rounded-2xl border-border/50 card-lift">
+   966→                          <CardContent className="p-6">
+   967→                            <div className="flex gap-0.5 mb-4">
+   968→                              {[...Array(5)].map((_, j) => (
+   969→                                <Star key={j} className="h-4 w-4 fill-amber-400 text-amber-400" />
+   970→                              ))}
+   971→                            </div>
+   972→                            <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+   973→                              &ldquo;{t.text}&rdquo;
+   974→                            </p>
+   975→                            <div className="flex items-center gap-3">
+   976→                              <div className="h-10 w-10 rounded-full gradient-brand flex items-center justify-center text-white text-xs font-bold">
+   977→                                {t.avatar}
+   978→                              </div>
+   979→                              <div>
+   980→                                <div className="text-sm font-semibold">{t.name}</div>
+   981→                                <div className="text-xs text-muted-foreground">{t.role}</div>
+   982→                              </div>
+   983→                            </div>
+   984→                          </CardContent>
+   985→                        </Card>
+   986→                      </motion.div>
+   987→                    ))}
+   988→                  </div>
+   989→                </div>
+   990→              </section>
+   991→
+   992→              {/* FINAL CTA */}
+   993→              <section className="py-20 lg:py-28 bg-muted/30">
+   994→                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
+   995→                  <motion.div
+   996→                    initial={{ opacity: 0, y: 24 }}
+   997→                    whileInView={{ opacity: 1, y: 0 }}
+   998→                    viewport={{ once: true }}
+   999→                    className="max-w-2xl mx-auto"
+  1000→                  >
+  1001→                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+  1002→                      Ready to{' '}
+  1003→                      <span className="gradient-text">10x your content output?</span>
+  1004→                    </h2>
+  1005→                    <p className="mt-4 text-lg text-muted-foreground">
+  1006→                      Join 12,000+ creators who stopped writing posts manually and started scaling with AI.
+  1007→                    </p>
+  1008→                    <div className="mt-10">
+  1009→                      <Button
+  1010→                        size="lg"
+  1011→                        onClick={goToApp}
+  1012→                        className="gradient-brand text-white border-0 hover:opacity-90 px-8 py-6 text-base font-semibold cursor-pointer rounded-xl"
+  1013→                      >
+  1014→                        <Sparkles className="h-5 w-5 mr-2" />
+  1015→                        Launch PostPilot — Free
+  1016→                        <ArrowRight className="h-5 w-5 ml-2" />
+  1017→                      </Button>
+  1018→                    </div>
+  1019→                    <p className="mt-4 text-sm text-muted-foreground">
+  1020→                      <Clock className="h-3.5 w-3.5 inline mr-1" />
+  1021→                      Takes less than 30 seconds to generate your first batch
+  1022→                    </p>
+  1023→                  </motion.div>
+  1024→                </div>
+  1025→              </section>
+  1026→            </motion.div>
+  1027→          )}
+  1028→
+  1029→          {/* -------------------------------------------------------- */}
+  1030→          {/*  APP VIEW — Content Generator                              */}
+  1031→          {/* -------------------------------------------------------- */}
+  1032→          {activeView === 'app' && (
+  1033→            <motion.div
+  1034→              key="app"
+  1035→              initial={{ opacity: 0 }}
+  1036→              animate={{ opacity: 1 }}
+  1037→              exit={{ opacity: 0 }}
+  1038→              transition={{ duration: 0.3 }}
+  1039→              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12"
+  1040→            >
+  1041→              {/* App Header */}
+  1042→              <div className="flex items-center justify-between mb-8">
+  1043→                <div>
+  1044→                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+  1045→                    Content Generator
+  1046→                  </h1>
+  1047→                  <p className="text-muted-foreground mt-1">
+  1048→                    Enter a topic or repurpose content — AI crafts viral posts for your platforms
+  1049→                  </p>
+  1050→                </div>
+  1051→                <div className="flex items-center gap-3">
+  1052→                  <Badge variant="secondary" className="text-xs gap-1.5">
+  1053→                    <Zap className="h-3 w-3 text-orange-500" />
+  1054→                    {credits !== null ? (credits > 0 ? `${credits} credits left` : 'No credits') : '—'}
+  1055→                  </Badge>
+  1056→                  {userPlan && (
+  1057→                    <Badge variant="outline" className="text-xs capitalize">{userPlan}</Badge>
+  1058→                  )}
+  1059→                  <Button
+  1060→                    variant="outline"
+  1061→                    size="sm"
+  1062→                    onClick={() => setActiveView('landing')}
+  1063→                    className="cursor-pointer"
+  1064→                  >
+  1065→                    Back to Home
+  1066→                  </Button>
+  1067→                </div>
+  1068→              </div>
+  1069→
+  1070→              <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-8">
+  1071→                {/* LEFT: Controls */}
+  1072→                <div className="space-y-6">
+  1073→
+  1074→                  {/* Input Mode Toggle */}
+  1075→                  <Card className="rounded-2xl border-border/50">
+  1076→                    <CardContent className="p-6">
+  1077→                      <div className="flex items-center justify-between mb-4">
+  1078→                        <label className="text-sm font-semibold">
+  1079→                          <Sparkles className="h-4 w-4 inline mr-1.5 text-orange-500" />
+  1080→                          Content Source
+  1081→                        </label>
+  1082→                        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+  1083→                          <button
+  1084→                            onClick={() => setInputMode('topic')}
+  1085→                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+  1086→                              inputMode === 'topic'
+  1087→                                ? 'bg-background shadow-sm text-foreground'
+  1088→                                : 'text-muted-foreground hover:text-foreground'
+  1089→                            }`}
+  1090→                          >
+  1091→                            <Lightbulb className="h-3 w-3 inline mr-1" />
+  1092→                            Topic
+  1093→                          </button>
+  1094→                          <button
+  1095→                            onClick={() => setInputMode('repurpose')}
+  1096→                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+  1097→                              inputMode === 'repurpose'
+  1098→                                ? 'bg-background shadow-sm text-foreground'
+  1099→                                : 'text-muted-foreground hover:text-foreground'
+  1100→                            }`}
+  1101→                          >
+  1102→                            <FileText className="h-3 w-3 inline mr-1" />
+  1103→                            Repurpose
+  1104→                          </button>
+  1105→                        </div>
+  1106→                      </div>
+  1107→
+  1108→                      {inputMode === 'topic' ? (
+  1109→                        <div>
+  1110→                          <Textarea
+  1111→                            value={topic}
+  1112→                            onChange={(e) => setTopic(e.target.value)}
+  1113→                            placeholder="e.g. 'How AI is changing remote work in 2026', '5 productivity hacks for entrepreneurs', 'Why every startup needs a content strategy'..."
+  1114→                            className="min-h-[100px] resize-none rounded-xl text-sm leading-relaxed"
+  1115→                          />
+  1116→                          <div className="mt-3 flex items-center justify-between">
+  1117→                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+  1118→                              <span>{topic.length} characters</span>
+  1119→                              <span className={topic.length >= 3 ? 'text-orange-500' : ''}>
+  1120→                                {topic.length >= 3 ? 'Ready' : 'Min 3 chars'}
+  1121→                              </span>
+  1122→                            </div>
+  1123→                            <Button
+  1124→                              variant="ghost"
+  1125→                              size="sm"
+  1126→                              onClick={handleEnhance}
+  1127→                              disabled={isEnhancing || topic.trim().length < 3}
+  1128→                              className="text-xs cursor-pointer text-orange-500 hover:text-orange-600 h-7 px-2"
+  1129→                            >
+  1130→                              {isEnhancing ? (
+  1131→                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+  1132→                              ) : (
+  1133→                                <Wand2 className="h-3 w-3 mr-1" />
+  1134→                              )}
+  1135→                              Enhance Prompt
+  1136→                            </Button>
+  1137→                          </div>
+  1138→                        </div>
+  1139→                      ) : (
+  1140→                        <div>
+  1141→                          <Textarea
+  1142→                            value={repurposeText}
+  1143→                            onChange={(e) => setRepurposeText(e.target.value)}
+  1144→                            placeholder="Paste a blog article, video transcript, newsletter, or any long-form content. PostPilot will break it down and generate unique social media posts from it..."
+  1145→                            className="min-h-[140px] resize-none rounded-xl text-sm leading-relaxed"
+  1146→                          />
+  1147→                          <div className="mt-3 flex items-center justify-between">
+  1148→                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+  1149→                              <Link2 className="h-3 w-3" />
+  1150→                              <span>{repurposeText.length} characters</span>
+  1151→                            </div>
+  1152→                            <Button
+  1153→                              variant="ghost"
+  1154→                              size="sm"
+  1155→                              onClick={handleEnhance}
+  1156→                              disabled={isEnhancing || repurposeText.trim().length < 3}
+  1157→                              className="text-xs cursor-pointer text-orange-500 hover:text-orange-600 h-7 px-2"
+  1158→                            >
+  1159→                              {isEnhancing ? (
+  1160→                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+  1161→                              ) : (
+  1162→                                <Wand2 className="h-3 w-3 mr-1" />
+  1163→                              )}
+  1164→                              Enhance
+  1165→                            </Button>
+  1166→                          </div>
+  1167→                        </div>
+  1168→                      )}
+  1169→                    </CardContent>
+  1170→                  </Card>
+  1171→
+  1172→                  {/* Platform Selector — Multi-select */}
+  1173→                  <Card className="rounded-2xl border-border/50">
+  1174→                    <CardContent className="p-6">
+  1175→                      <div className="flex items-center justify-between mb-3">
+  1176→                        <label className="text-sm font-semibold">
+  1177→                          <Globe className="h-4 w-4 inline mr-1.5 text-orange-500" />
+  1178→                          Target Platform{selectedPlatforms.length > 1 ? 's' : ''}
+  1179→                        </label>
+  1180→                        <div className="flex items-center gap-2">
+  1181→                          {selectedPlatforms.length > 1 && (
+  1182→                            <Badge variant="secondary" className="text-[10px]">
+  1183→                              {selectedPlatforms.length} selected
+  1184→                            </Badge>
+  1185→                          )}
+  1186→                          <button
+  1187→                            onClick={() => {
+  1188→                              if (selectedPlatforms.length === PLATFORMS.length) {
+  1189→                                setSelectedPlatforms(['twitter']);
+  1190→                              } else {
+  1191→                                setSelectedPlatforms(PLATFORMS.map((p) => p.id));
+  1192→                              }
+  1193→                            }}
+  1194→                            className="text-[10px] text-orange-500 hover:text-orange-600 font-medium cursor-pointer"
+  1195→                          >
+  1196→                            {selectedPlatforms.length === PLATFORMS.length ? 'Clear all' : 'Select all'}
+  1197→                          </button>
+  1198→                        </div>
+  1199→                      </div>
+  1200→                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+  1201→                        {PLATFORMS.map((p) => (
+  1202→                          <button
+  1203→                            key={p.id}
+  1204→                            onClick={() => togglePlatform(p.id)}
+  1205→                            className={`flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
+  1206→                              selectedPlatforms.includes(p.id)
+  1207→                                ? 'border-orange-400 bg-orange-50 text-orange-700'
+  1208→                                : 'border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
+  1209→                            }`}
+  1210→                          >
+  1211→                            <p.icon className="h-4 w-4" style={{ color: selectedPlatforms.includes(p.id) ? undefined : p.color }} />
+  1212→                            <div className="text-left">
+  1213→                              <div className="text-xs font-semibold">{p.name}</div>
+  1214→                              <div className="text-[10px] opacity-60">{p.desc}</div>
+  1215→                            </div>
+  1216→                            {selectedPlatforms.includes(p.id) && (
+  1217→                              <Check className="h-3 w-3 ml-auto text-orange-500" />
+  1218→                            )}
+  1219→                          </button>
+  1220→                        ))}
+  1221→                      </div>
+  1222→                    </CardContent>
+  1223→                  </Card>
+  1224→
+  1225→                  {/* Tone + Brand Voice */}
+  1226→                  <Card className="rounded-2xl border-border/50">
+  1227→                    <CardContent className="p-6 space-y-5">
+  1228→                      {/* Tone */}
+  1229→                      <div>
+  1230→                        <label className="text-sm font-semibold mb-3 block">
+  1231→                          <Palette className="h-4 w-4 inline mr-1.5 text-orange-500" />
+  1232→                          Tone & Style
+  1233→                        </label>
+  1234→                        <div className="flex flex-wrap gap-2">
+  1235→                          {TONES.map((t) => (
+  1236→                            <button
+  1237→                              key={t.id}
+  1238→                              onClick={() => setSelectedTone(t.id)}
+  1239→                              className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+  1240→                                selectedTone === t.id
+  1241→                                  ? 'border-orange-400 bg-orange-50 text-orange-700'
+  1242→                                  : 'border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
+  1243→                              }`}
+  1244→                            >
+  1245→                              {t.emoji} {t.label}
+  1246→                            </button>
+  1247→                          ))}
+  1248→                        </div>
+  1249→                      </div>
+  1250→
+  1251→                      {/* Brand Voice Toggle */}
+  1252→                      <div>
+  1253→                        <button
+  1254→                          onClick={() => setShowBrandVoice(!showBrandVoice)}
+  1255→                          className="flex items-center gap-2 text-sm font-semibold cursor-pointer hover:text-orange-500 transition-colors"
+  1256→                        >
+  1257→                          <Mic className="h-4 w-4 text-orange-500" />
+  1258→                          Brand Voice Training
+  1259→                          <ChevronDown className={`h-4 w-4 transition-transform ${showBrandVoice ? 'rotate-180' : ''}`} />
+  1260→                          <Badge variant="secondary" className="text-[10px] ml-1">Pro</Badge>
+  1261→                        </button>
+  1262→                        <AnimatePresence>
+  1263→                          {showBrandVoice && (
+  1264→                            <motion.div
+  1265→                              initial={{ height: 0, opacity: 0 }}
+  1266→                              animate={{ height: 'auto', opacity: 1 }}
+  1267→                              exit={{ height: 0, opacity: 0 }}
+  1268→                              className="overflow-hidden"
+  1269→                            >
+  1270→                              <div className="mt-3">
+  1271→                                <Textarea
+  1272→                                  value={brandVoice}
+  1273→                                  onChange={(e) => setBrandVoice(e.target.value)}
+  1274→                                  placeholder="Describe your brand voice or paste examples of your past posts. E.g., 'I write in a casual, witty tone with lots of analogies. I avoid corporate jargon and use short sentences. My audience is startup founders aged 25-40.'"
+  1275→                                  className="min-h-[100px] resize-none rounded-xl text-sm leading-relaxed"
+  1276→                                />
+  1277→                                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+  1278→                                  <Info className="h-3 w-3" />
+  1279→                                  <span>AI will match this voice in every generated post</span>
+  1280→                                </div>
+  1281→                              </div>
+  1282→                            </motion.div>
+  1283→                          )}
+  1284→                        </AnimatePresence>
+  1285→                      </div>
+  1286→
+  1287→                      {/* Post Count */}
+  1288→                      <div>
+  1289→                        <label className="text-sm font-semibold mb-3 block">
+  1290→                          Number of Posts (per platform)
+  1291→                        </label>
+  1292→                        <div className="flex items-center gap-3">
+  1293→                          <input
+  1294→                            type="range"
+  1295→                            min={1}
+  1296→                            max={10}
+  1297→                            value={postCount}
+  1298→                            onChange={(e) => setPostCount(Number(e.target.value))}
+  1299→                            className="flex-1 accent-orange-500"
+  1300→                          />
+  1301→                          <span className="text-sm font-mono font-semibold bg-muted px-3 py-1.5 rounded-lg min-w-[48px] text-center">
+  1302→                            {postCount}
+  1303→                          </span>
+  1304→                        </div>
+  1305→                      </div>
+  1306→                    </CardContent>
+  1307→                  </Card>
+  1308→
+  1309→                  {/* Generate Button */}
+  1310→                  <div className="flex gap-3">
+  1311→                    <Button
+  1312→                      onClick={handleGenerate}
+  1313→                      disabled={isGenerating || (credits !== null && credits <= 0)}
+  1314→                      className="flex-1 gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-6 text-base font-semibold"
+  1315→                      size="lg"
+  1316→                    >
+  1317→                      {isGenerating ? (
+  1318→                        <>
+  1319→                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+  1320→                          Generating...
+  1321→                        </>
+  1322→                      ) : (
+  1323→                        <>
+  1324→                          <Zap className="h-5 w-5 mr-2" />
+  1325→                          Generate {postCount} Post{postCount > 1 ? 's' : ''}
+  1326→                          {selectedPlatforms.length > 1 ? ` x${selectedPlatforms.length} platforms` : ''}
+  1327→                        </>
+  1328→                      )}
+  1329→                    </Button>
+  1330→                    {generatedPosts.length > 0 && (
+  1331→                      <Button
+  1332→                        variant="outline"
+  1333→                        onClick={handleClear}
+  1334→                        className="rounded-xl px-4 cursor-pointer"
+  1335→                        size="lg"
+  1336→                      >
+  1337→                        <RefreshCw className="h-4 w-4" />
+  1338→                      </Button>
+  1339→                    )}
+  1340→                  </div>
+  1341→
+  1342→                  {credits !== null && credits <= 0 && (
+  1343→                    <Card className="rounded-2xl border-orange-300 bg-orange-50/50">
+  1344→                      <CardContent className="p-4 flex items-center gap-3">
+  1345→                        <Zap className="h-5 w-5 text-orange-500 flex-shrink-0" />
+  1346→                        <div>
+  1347→                          <p className="text-sm font-semibold text-orange-700">No credits remaining</p>
+  1348→                          <p className="text-xs text-orange-600/70">Upgrade to Pro for 500 credits/month</p>
+  1349→                        </div>
+  1350→                        <Button size="sm" className="ml-auto gradient-brand text-white border-0 cursor-pointer text-xs">
+  1351→                          Upgrade
+  1352→                        </Button>
+  1353→                      </CardContent>
+  1354→                    </Card>
+  1355→                  )}
+  1356→                </div>
+  1357→
+  1358→                {/* RIGHT: Results */}
+  1359→                <div ref={resultsRef}>
+  1360→                  {generatedPosts.length === 0 && !isGenerating ? (
+  1361→                    <Card className="rounded-2xl border-dashed border-2 border-border/50">
+  1362→                      <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
+  1363→                        <div className="h-20 w-20 rounded-2xl bg-muted flex items-center justify-center mb-6">
+  1364→                          <Sparkles className="h-10 w-10 text-muted-foreground" />
+  1365→                        </div>
+  1366→                        <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
+  1367→                        <p className="text-sm text-muted-foreground max-w-sm">
+  1368→                          Enter a topic or paste content to repurpose, choose your platforms and tone, then hit generate. Your AI-crafted posts will appear here with schedule and publish options.
+  1369→                        </p>
+  1370→                        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+  1371→                          <Badge variant="secondary" className="text-[10px]">6 platforms</Badge>
+  1372→                          <Badge variant="secondary" className="text-[10px]">6 tones</Badge>
+  1373→                          <Badge variant="secondary" className="text-[10px]">Brand voice</Badge>
+  1374→                          <Badge variant="secondary" className="text-[10px]">Schedule</Badge>
+  1375→                        </div>
+  1376→                      </CardContent>
+  1377→                    </Card>
+  1378→                  ) : isGenerating ? (
+  1379→                    <Card className="rounded-2xl border-border/50">
+  1380→                      <CardContent className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+  1381→                        <div className="relative">
+  1382→                          <div className="h-16 w-16 rounded-2xl gradient-brand flex items-center justify-center animate-pulse">
+  1383→                            <Zap className="h-8 w-8 text-white" />
+  1384→                          </div>
+  1385→                          <div className="absolute inset-0 rounded-2xl gradient-brand animate-ping opacity-20" />
+  1386→                        </div>
+  1387→                        <h3 className="mt-6 text-lg font-semibold">Creating your posts...</h3>
+  1388→                        <p className="text-sm text-muted-foreground mt-2">
+  1389→                          Generating {postCount} post{postCount > 1 ? 's' : ''} for {selectedPlatforms.length} platform{selectedPlatforms.length > 1 ? 's' : ''}
+  1390→                        </p>
+  1391→                        <div className="mt-6 w-48 h-1.5 bg-muted rounded-full overflow-hidden">
+  1392→                          <div className="h-full gradient-brand rounded-full animate-[shimmer_2s_ease-in-out_infinite]" style={{ width: '60%' }} />
+  1393→                        </div>
+  1394→                      </CardContent>
+  1395→                    </Card>
+  1396→                  ) : (
+  1397→                    <div className="space-y-4">
+  1398→                      <div className="flex items-center justify-between">
+  1399→                        <h3 className="text-sm font-semibold text-muted-foreground">
+  1400→                          Generated Posts
+  1401→                          <Badge variant="secondary" className="ml-2">{generatedPosts.length}</Badge>
+  1402→                        </h3>
+  1403→                        <div className="flex items-center gap-2">
+  1404→                          {selectedPlatforms.length === 1 && (
+  1405→                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+  1406→                              {platformIcon(selectedPlatforms[0], 'h-3.5 w-3.5')}
+  1407→                              {PLATFORMS.find((p) => p.id === selectedPlatforms[0])?.name}
+  1408→                            </div>
+  1409→                          )}
+  1410→                        </div>
+  1411→                      </div>
+  1412→
+  1413→                      {generatedPosts.map((post, i) => (
+  1414→                        <motion.div
+  1415→                          key={post.id}
+  1416→                          initial={{ opacity: 0, y: 16 }}
+  1417→                          animate={{ opacity: 1, y: 0 }}
+  1418→                          transition={{ duration: 0.4, delay: i * 0.06 }}
+  1419→                        >
+  1420→                          <Card className="rounded-2xl border-border/50 card-lift">
+  1421→                            <CardContent className="p-5">
+  1422→                              <div className="flex items-start justify-between gap-4">
+  1423→                                <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+  1424→                                  <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
+  1425→                                    #{i + 1}
+  1426→                                  </span>
+  1427→                                  {platformIcon(post.platform, 'h-3.5 w-3.5')}
+  1428→                                  <span className="text-[10px] text-muted-foreground">
+  1429→                                    {PLATFORMS.find((p) => p.id === post.platform)?.name}
+  1430→                                  </span>
+  1431→                                </div>
+  1432→                                <div className="flex gap-1.5 flex-shrink-0">
+  1433→                                  <Button
+  1434→                                    variant="ghost"
+  1435→                                    size="sm"
+  1436→                                    onClick={() => handleCopy(post.id, post.content)}
+  1437→                                    className="cursor-pointer h-8 px-2.5"
+  1438→                                    title="Copy to clipboard"
+  1439→                                  >
+  1440→                                    {post.copied ? (
+  1441→                                      <Check className="h-4 w-4 text-green-500" />
+  1442→                                    ) : (
+  1443→                                      <Copy className="h-4 w-4" />
+  1444→                                    )}
+  1445→                                  </Button>
+  1446→                                  <Button
+  1447→                                    variant="ghost"
+  1448→                                    size="sm"
+  1449→                                    onClick={() => handlePublishNow(post.id)}
+  1450→                                    className="cursor-pointer h-8 px-2.5"
+  1451→                                    title="Publish now"
+  1452→                                  >
+  1453→                                    <Send className="h-4 w-4" />
+  1454→                                  </Button>
+  1455→                                  <Button
+  1456→                                    variant="ghost"
+  1457→                                    size="sm"
+  1458→                                    onClick={() => setShowScheduleModal(post.id)}
+  1459→                                    className="cursor-pointer h-8 px-2.5"
+  1460→                                    title="Schedule for later"
+  1461→                                  >
+  1462→                                    <CalendarClock className="h-4 w-4" />
+  1463→                                  </Button>
+  1464→                                </div>
+  1465→                              </div>
+  1466→                              <div className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
+  1467→                                {post.content}
+  1468→                              </div>
+  1469→                              <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
+  1470→                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+  1471→                                  <span className="capitalize">{TONES.find((t) => t.id === selectedTone)?.label}</span>
+  1472→                                  <span>•</span>
+  1473→                                  <span>{post.content.length} chars</span>
+  1474→                                  {brandVoice.trim() && (
+  1475→                                    <>
+  1476→                                      <span>•</span>
+  1477→                                      <Mic className="h-3 w-3 text-orange-500" />
+  1478→                                      <span className="text-orange-500">Brand Voice</span>
+  1479→                                    </>
+  1480→                                  )}
+  1481→                                </div>
+  1482→                                <div className="flex items-center gap-1.5">
+  1483→                                  {post.scheduled && (
+  1484→                                    <Badge className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 border-0">
+  1485→                                      <Check className="h-3 w-3 mr-0.5" /> Scheduled
+  1486→                                    </Badge>
+  1487→                                  )}
+  1488→                                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+  1489→                                    AI Generated
+  1490→                                  </Badge>
+  1491→                                </div>
+  1492→                              </div>
+  1493→                            </CardContent>
+  1494→                          </Card>
+  1495→                        </motion.div>
+  1496→                      ))}
+  1497→
+  1498→                      {/* Schedule Modal */}
+  1499→                      <AnimatePresence>
+  1500→                        {showScheduleModal && (
+  1501→                          <motion.div
+  1502→                            initial={{ opacity: 0, scale: 0.95 }}
+  1503→                            animate={{ opacity: 1, scale: 1 }}
+  1504→                            exit={{ opacity: 0, scale: 0.95 }}
+  1505→                          >
+  1506→                            <Card className="rounded-2xl border-orange-300 soft-glow">
+  1507→                              <CardContent className="p-5">
+  1508→                                <div className="flex items-center justify-between mb-4">
+  1509→                                  <h4 className="text-sm font-semibold flex items-center gap-2">
+  1510→                                    <CalendarClock className="h-4 w-4 text-orange-500" />
+  1511→                                    Schedule Post
+  1512→                                  </h4>
+  1513→                                  <Button
+  1514→                                    variant="ghost"
+  1515→                                    size="sm"
+  1516→                                    onClick={() => setShowScheduleModal(null)}
+  1517→                                    className="cursor-pointer h-7 w-7 p-0"
+  1518→                                  >
+  1519→                                    <X className="h-4 w-4" />
+  1520→                                  </Button>
+  1521→                                </div>
+  1522→                                <div className="grid grid-cols-2 gap-3">
+  1523→                                  <div>
+  1524→                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date</label>
+  1525→                                    <input
+  1526→                                      type="date"
+  1527→                                      value={scheduleDate}
+  1528→                                      onChange={(e) => setScheduleDate(e.target.value)}
+  1529→                                      min={new Date().toISOString().split('T')[0]}
+  1530→                                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+  1531→                                    />
+  1532→                                  </div>
+  1533→                                  <div>
+  1534→                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Time</label>
+  1535→                                    <input
+  1536→                                      type="time"
+  1537→                                      value={scheduleTime}
+  1538→                                      onChange={(e) => setScheduleTime(e.target.value)}
+  1539→                                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+  1540→                                    />
+  1541→                                  </div>
+  1542→                                </div>
+  1543→                                <Button
+  1544→                                  onClick={() => handleSchedule(showScheduleModal)}
+  1545→                                  className="mt-4 w-full gradient-brand text-white border-0 cursor-pointer rounded-xl"
+  1546→                                  size="sm"
+  1547→                                >
+  1548→                                  <CalendarClock className="h-4 w-4 mr-1.5" />
+  1549→                                  Confirm Schedule
+  1550→                                </Button>
+  1551→                              </CardContent>
+  1552→                            </Card>
+  1553→                          </motion.div>
+  1554→                        )}
+  1555→                      </AnimatePresence>
+  1556→
+  1557→                      {/* Regenerate */}
+  1558→                      <div className="pt-4">
+  1559→                        <Button
+  1560→                          onClick={handleGenerate}
+  1561→                          disabled={isGenerating || (credits !== null && credits <= 0)}
+  1562→                          variant="outline"
+  1563→                          className="w-full cursor-pointer rounded-xl py-5"
+  1564→                        >
+  1565→                          <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+  1566→                          Generate More Posts
+  1567→                        </Button>
+  1568→                      </div>
+  1569→                    </div>
+  1570→                  )}
+  1571→                </div>
+  1572→              </div>
+  1573→            </motion.div>
+  1574→          )}
+  1575→
+  1576→          {/* -------------------------------------------------------- */}
+  1577→          {/*  ADMIN VIEW — Stats Dashboard                              */}
+  1578→          {/* -------------------------------------------------------- */}
+  1579→          {activeView === 'admin' && (
+  1580→            <motion.div
+  1581→              key="admin"
+  1582→              initial={{ opacity: 0 }}
+  1583→              animate={{ opacity: 1 }}
+  1584→              exit={{ opacity: 0 }}
+  1585→              transition={{ duration: 0.3 }}
+  1586→              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12"
+  1587→            >
+  1588→              {/* Admin Header */}
+  1589→              <div className="flex items-center justify-between mb-8">
+  1590→                <div>
+  1591→                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3">
+  1592→                    <LayoutDashboard className="h-7 w-7 text-orange-500" />
+  1593→                    Admin Dashboard
+  1594→                  </h1>
+  1595→                  <p className="text-muted-foreground mt-1">
+  1596→                    Real-time analytics, generation stats, and system health
+  1597→                  </p>
+  1598→                </div>
+  1599→                <div className="flex items-center gap-3">
+  1600→                  <Button
+  1601→                    variant="outline"
+  1602→                    size="sm"
+  1603→                    onClick={() => {
+  1604→                      setAdminLoading(true);
+  1605→                      fetch('/api/admin')
+  1606→                        .then((r) => r.json())
+  1607→                        .then((data) => setAdminStats(data))
+  1608→                        .catch(() => setAdminStats(null))
+  1609→                        .finally(() => setAdminLoading(false));
+  1610→                    }}
+  1611→                    disabled={adminLoading}
+  1612→                    className="cursor-pointer"
+  1613→                  >
+  1614→                    {adminLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+  1615→                    Refresh
+  1616→                  </Button>
+  1617→                  <Button
+  1618→                    variant="outline"
+  1619→                    size="sm"
+  1620→                    onClick={() => setActiveView('landing')}
+  1621→                    className="cursor-pointer"
+  1622→                  >
+  1623→                    Back to Home
+  1624→                  </Button>
+  1625→                </div>
+  1626→              </div>
+  1627→
+  1628→              {adminLoading && !adminStats ? (
+  1629→                <Card className="rounded-2xl border-border/50">
+  1630→                  <CardContent className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+  1631→                    <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+  1632→                    <p className="mt-4 text-sm text-muted-foreground">Loading dashboard...</p>
+  1633→                  </CardContent>
+  1634→                </Card>
+  1635→              ) : adminStats ? (
+  1636→                <div className="space-y-6">
+  1637→                  {/* Top Stats Row */}
+  1638→                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  1639→                    <Card className="rounded-2xl border-border/50">
+  1640→                      <CardContent className="p-5">
+  1641→                        <div className="flex items-center gap-3 mb-3">
+  1642→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+  1643→                            <Zap className="h-5 w-5 text-orange-500" />
+  1644→                          </div>
+  1645→                          <span className="text-xs font-medium text-muted-foreground">Total Generations</span>
+  1646→                        </div>
+  1647→                        <p className="text-3xl font-bold">{adminStats.totalGenerations}</p>
+  1648→                      </CardContent>
+  1649→                    </Card>
+  1650→                    <Card className="rounded-2xl border-border/50">
+  1651→                      <CardContent className="p-5">
+  1652→                        <div className="flex items-center gap-3 mb-3">
+  1653→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+  1654→                            <MessageSquare className="h-5 w-5 text-orange-500" />
+  1655→                          </div>
+  1656→                          <span className="text-xs font-medium text-muted-foreground">Posts Generated</span>
+  1657→                        </div>
+  1658→                        <p className="text-3xl font-bold">{adminStats.totalPostsGenerated}</p>
+  1659→                      </CardContent>
+  1660→                    </Card>
+  1661→                    <Card className="rounded-2xl border-border/50">
+  1662→                      <CardContent className="p-5">
+  1663→                        <div className="flex items-center gap-3 mb-3">
+  1664→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+  1665→                            <Shield className="h-5 w-5 text-orange-500" />
+  1666→                          </div>
+  1667→                          <span className="text-xs font-medium text-muted-foreground">Rate Limited</span>
+  1668→                        </div>
+  1669→                        <p className="text-3xl font-bold">{adminStats.rateLimitedRequests}</p>
+  1670→                      </CardContent>
+  1671→                    </Card>
+  1672→                    <Card className="rounded-2xl border-border/50">
+  1673→                      <CardContent className="p-5">
+  1674→                        <div className="flex items-center gap-3 mb-3">
+  1675→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+  1676→                            <Server className="h-5 w-5 text-orange-500" />
+  1677→                          </div>
+  1678→                          <span className="text-xs font-medium text-muted-foreground">Server Uptime</span>
+  1679→                        </div>
+  1680→                        <p className="text-3xl font-bold">
+  1681→                          {Math.floor(adminStats.uptime / 3600)}h {Math.floor((adminStats.uptime % 3600) / 60)}m
+  1682→                        </p>
+  1683→                      </CardContent>
+  1684→                    </Card>
+  1685→                  </div>
+  1686→
+  1687→                  {/* Charts Row */}
+  1688→                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  1689→                    {/* By Platform */}
+  1690→                    <Card className="rounded-2xl border-border/50">
+  1691→                      <CardContent className="p-6">
+  1692→                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+  1693→                          <Globe className="h-4 w-4 text-orange-500" />
+  1694→                          Generations by Platform
+  1695→                        </h3>
+  1696→                        <div className="space-y-3">
+  1697→                          {Object.entries(adminStats.generationsByPlatform).length > 0 ? (
+  1698→                            Object.entries(adminStats.generationsByPlatform)
+  1699→                              .sort(([, a], [, b]) => b - a)
+  1700→                              .map(([platform, count]) => {
+  1701→                                const maxCount = Math.max(...Object.values(adminStats.generationsByPlatform));
+  1702→                                const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+  1703→                                const pInfo = PLATFORMS.find((p) => p.id === platform);
+  1704→                                return (
+  1705→                                  <div key={platform} className="space-y-1.5">
+  1706→                                    <div className="flex items-center justify-between text-xs">
+  1707→                                      <span className="font-medium capitalize flex items-center gap-1.5">
+  1708→                                        {pInfo ? <pInfo.icon className="h-3.5 w-3.5" style={{ color: pInfo.color }} /> : null}
+  1709→                                        {platform}
+  1710→                                      </span>
+  1711→                                      <span className="text-muted-foreground">{count} gen{count !== 1 ? 's' : ''}</span>
+  1712→                                    </div>
+  1713→                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+  1714→                                      <div
+  1715→                                        className="h-full gradient-brand rounded-full transition-all duration-500"
+  1716→                                        style={{ width: `${pct}%` }}
+  1717→                                      />
+  1718→                                    </div>
+  1719→                                  </div>
+  1720→                                );
+  1721→                              })
+  1722→                          ) : (
+  1723→                            <p className="text-xs text-muted-foreground text-center py-8">No generations yet</p>
+  1724→                          )}
+  1725→                        </div>
+  1726→                      </CardContent>
+  1727→                    </Card>
+  1728→
+  1729→                    {/* By Tone */}
+  1730→                    <Card className="rounded-2xl border-border/50">
+  1731→                      <CardContent className="p-6">
+  1732→                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+  1733→                          <Palette className="h-4 w-4 text-orange-500" />
+  1734→                          Generations by Tone
+  1735→                        </h3>
+  1736→                        <div className="space-y-3">
+  1737→                          {Object.entries(adminStats.generationsByTone).length > 0 ? (
+  1738→                            Object.entries(adminStats.generationsByTone)
+  1739→                              .sort(([, a], [, b]) => b - a)
+  1740→                              .map(([tone, count]) => {
+  1741→                                const maxCount = Math.max(...Object.values(adminStats.generationsByTone));
+  1742→                                const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+  1743→                                const tInfo = TONES.find((t) => t.id === tone);
+  1744→                                return (
+  1745→                                  <div key={tone} className="space-y-1.5">
+  1746→                                    <div className="flex items-center justify-between text-xs">
+  1747→                                      <span className="font-medium">
+  1748→                                        {tInfo ? `${tInfo.emoji} ${tInfo.label}` : tone}
+  1749→                                      </span>
+  1750→                                      <span className="text-muted-foreground">{count} gen{count !== 1 ? 's' : ''}</span>
+  1751→                                    </div>
+  1752→                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+  1753→                                      <div
+  1754→                                        className="h-full gradient-brand rounded-full transition-all duration-500"
+  1755→                                        style={{ width: `${pct}%` }}
+  1756→                                      />
+  1757→                                    </div>
+  1758→                                  </div>
+  1759→                                );
+  1760→                              })
+  1761→                          ) : (
+  1762→                            <p className="text-xs text-muted-foreground text-center py-8">No generations yet</p>
+  1763→                          )}
+  1764→                        </div>
+  1765→                      </CardContent>
+  1766→                    </Card>
+  1767→                  </div>
+  1768→
+  1769→                  {/* By Mode + Avg Stats */}
+  1770→                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  1771→                    {/* By Mode */}
+  1772→                    <Card className="rounded-2xl border-border/50">
+  1773→                      <CardContent className="p-6">
+  1774→                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+  1775→                          <Layers className="h-4 w-4 text-orange-500" />
+  1776→                          Generation Modes
+  1777→                        </h3>
+  1778→                        <div className="space-y-3">
+  1779→                          {Object.entries(adminStats.generationsByMode).length > 0 ? (
+  1780→                            Object.entries(adminStats.generationsByMode)
+  1781→                              .sort(([, a], [, b]) => b - a)
+  1782→                              .map(([mode, count]) => {
+  1783→                                const modeLabels: Record<string, string> = {
+  1784→                                  generate: 'Topic Generate',
+  1785→                                  repurpose: 'Content Repurpose',
+  1786→                                  enhance: 'Prompt Enhance',
+  1787→                                };
+  1788→                                return (
+  1789→                                  <div key={mode} className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
+  1790→                                    <span className="text-xs font-medium">{modeLabels[mode] || mode}</span>
+  1791→                                    <Badge variant="secondary" className="text-[10px]">{count}</Badge>
+  1792→                                  </div>
+  1793→                                );
+  1794→                              })
+  1795→                          ) : (
+  1796→                            <p className="text-xs text-muted-foreground text-center py-6">No data yet</p>
+  1797→                          )}
+  1798→                        </div>
+  1799→                      </CardContent>
+  1800→                    </Card>
+  1801→
+  1802→                    {/* Quick Stats */}
+  1803→                    <Card className="rounded-2xl border-border/50">
+  1804→                      <CardContent className="p-6">
+  1805→                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+  1806→                          <TrendingUp className="h-4 w-4 text-orange-500" />
+  1807→                          Quick Stats
+  1808→                        </h3>
+  1809→                        <div className="space-y-3">
+  1810→                          <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
+  1811→                            <span className="text-xs text-muted-foreground">Avg posts per generation</span>
+  1812→                            <span className="text-sm font-semibold">
+  1813→                              {adminStats.totalGenerations > 0
+  1814→                                ? (adminStats.totalPostsGenerated / adminStats.totalGenerations).toFixed(1)
+  1815→                                : '0'}
+  1816→                            </span>
+  1817→                          </div>
+  1818→                          <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
+  1819→                            <span className="text-xs text-muted-foreground">Rate limit hit rate</span>
+  1820→                            <span className="text-sm font-semibold">
+  1821→                              {adminStats.totalGenerations + adminStats.rateLimitedRequests > 0
+  1822→                                ? ((adminStats.rateLimitedRequests / (adminStats.totalGenerations + adminStats.rateLimitedRequests)) * 100).toFixed(1)
+  1823→                                : '0'}%
+  1824→                            </span>
+  1825→                          </div>
+  1826→                          <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
+  1827→                            <span className="text-xs text-muted-foreground">Most used platform</span>
+  1828→                            <span className="text-sm font-semibold capitalize">
+  1829→                              {Object.entries(adminStats.generationsByPlatform).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'}
+  1830→                            </span>
+  1831→                          </div>
+  1832→                        </div>
+  1833→                      </CardContent>
+  1834→                    </Card>
+  1835→
+  1836→                    {/* System Health */}
+  1837→                    <Card className="rounded-2xl border-border/50">
+  1838→                      <CardContent className="p-6">
+  1839→                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+  1840→                          <Activity className="h-4 w-4 text-orange-500" />
+  1841→                          System Health
+  1842→                        </h3>
+  1843→                        <div className="space-y-3">
+  1844→                          <div className="flex items-center gap-2 py-2 px-3 bg-green-50 rounded-lg">
+  1845→                            <div className="h-2 w-2 rounded-full bg-green-500" />
+  1846→                            <span className="text-xs font-medium text-green-700">API Server: Online</span>
+  1847→                          </div>
+  1848→                          <div className="flex items-center gap-2 py-2 px-3 bg-green-50 rounded-lg">
+  1849→                            <div className="h-2 w-2 rounded-full bg-green-500" />
+  1850→                            <span className="text-xs font-medium text-green-700">AI Engine: Connected</span>
+  1851→                          </div>
+  1852→                          <div className="flex items-center gap-2 py-2 px-3 bg-green-50 rounded-lg">
+  1853→                            <div className="h-2 w-2 rounded-full bg-green-500" />
+  1854→                            <span className="text-xs font-medium text-green-700">Rate Limiter: Active</span>
+  1855→                          </div>
+  1856→                          <div className="flex items-center gap-2 py-2 px-3 bg-amber-50 rounded-lg">
+  1857→                            <AlertTriangle className="h-3 w-3 text-amber-500" />
+  1858→                            <span className="text-xs font-medium text-amber-700">No external DB connected</span>
+  1859→                          </div>
+  1860→                        </div>
+  1861→                      </CardContent>
+  1862→                    </Card>
+  1863→                  </div>
+  1864→
+  1865→                  {/* Recent Generations Table */}
+  1866→                  <Card className="rounded-2xl border-border/50">
+  1867→                    <CardContent className="p-6">
+  1868→                      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+  1869→                        <Clock className="h-4 w-4 text-orange-500" />
+  1870→                        Recent Generations
+  1871→                        <Badge variant="secondary" className="text-[10px] ml-auto">
+  1872→                          Last {adminStats.recentGenerations.length} of {adminStats.totalGenerations}
+  1873→                        </Badge>
+  1874→                      </h3>
+  1875→                      {adminStats.recentGenerations.length > 0 ? (
+  1876→                        <div className="overflow-x-auto">
+  1877→                          <table className="w-full text-xs">
+  1878→                            <thead>
+  1879→                              <tr className="border-b border-border/50">
+  1880→                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Time</th>
+  1881→                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Platform</th>
+  1882→                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Tone</th>
+  1883→                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Mode</th>
+  1884→                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Requested</th>
+  1885→                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Delivered</th>
+  1886→                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Topic</th>
+  1887→                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">IP</th>
+  1888→                              </tr>
+  1889→                            </thead>
+  1890→                            <tbody>
+  1891→                              {adminStats.recentGenerations.map((gen) => (
+  1892→                                <tr key={gen.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
+  1893→                                  <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
+  1894→                                    {new Date(gen.timestamp).toLocaleTimeString()}
+  1895→                                  </td>
+  1896→                                  <td className="py-2.5 px-3 capitalize flex items-center gap-1.5">
+  1897→                                    {(() => {
+  1898→                                      const pInfo = PLATFORMS.find((p) => p.id === gen.platform);
+  1899→                                      return pInfo ? (
+  1900→                                        <>
+  1901→                                          <pInfo.icon className="h-3 w-3" style={{ color: pInfo.color }} />
+  1902→                                          <span className="hidden sm:inline">{pInfo.name}</span>
+  1903→                                          <span className="sm:hidden">{gen.platform}</span>
+  1904→                                        </>
+  1905→                                      ) : (
+  1906→                                        <span>{gen.platform}</span>
+  1907→                                      );
+  1908→                                    })()}
+  1909→                                  </td>
+  1910→                                  <td className="py-2.5 px-3 capitalize">
+  1911→                                    {TONES.find((t) => t.id === gen.tone)?.label || gen.tone}
+  1912→                                  </td>
+  1913→                                  <td className="py-2.5 px-3">
+  1914→                                    <Badge variant="secondary" className="text-[10px]">
+  1915→                                      {gen.mode === 'repurpose' ? 'Repurpose' : gen.mode === 'enhance' ? 'Enhance' : 'Generate'}
+  1916→                                    </Badge>
+  1917→                                  </td>
+  1918→                                  <td className="py-2.5 px-3 font-mono">{gen.count}</td>
+  1919→                                  <td className="py-2.5 px-3 font-mono font-semibold">{gen.postsGenerated}</td>
+  1920→                                  <td className="py-2.5 px-3 max-w-[200px] truncate text-muted-foreground" title={gen.topic}>
+  1921→                                    {gen.topic}
+  1922→                                  </td>
+  1923→                                  <td className="py-2.5 px-3 text-muted-foreground font-mono">{gen.ip}</td>
+  1924→                                </tr>
+  1925→                              ))}
+  1926→                            </tbody>
+  1927→                          </table>
+  1928→                        </div>
+  1929→                      ) : (
+  1930→                        <div className="text-center py-12">
+  1931→                          <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+  1932→                            <Activity className="h-8 w-8 text-muted-foreground" />
+  1933→                          </div>
+  1934→                          <h4 className="text-sm font-semibold mb-1">No generations recorded yet</h4>
+  1935→                          <p className="text-xs text-muted-foreground">Stats will appear here once users start generating content</p>
+  1936→                        </div>
+  1937→                      )}
+  1938→                    </CardContent>
+  1939→                  </Card>
+  1940→                </div>
+  1941→              ) : (
+  1942→                <Card className="rounded-2xl border-red-200 bg-red-50/50">
+  1943→                  <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[300px]">
+  1944→                    <AlertTriangle className="h-10 w-10 text-red-500 mb-4" />
+  1945→                    <h3 className="text-lg font-semibold">Failed to load dashboard</h3>
+  1946→                    <p className="text-sm text-muted-foreground mt-2">Could not connect to the admin API. Check the server status and try again.</p>
+  1947→                    <Button
+  1948→                      variant="outline"
+  1949→                      className="mt-4 cursor-pointer"
+  1950→                      onClick={() => {
+  1951→                        setAdminLoading(true);
+  1952→                        fetch('/api/admin')
+  1953→                          .then((r) => r.json())
+  1954→                          .then((data) => setAdminStats(data))
+  1955→                          .catch(() => setAdminStats(null))
+  1956→                          .finally(() => setAdminLoading(false));
+  1957→                      }}
+  1958→                    >
+  1959→                      Retry
+  1960→                    </Button>
+  1961→                  </CardContent>
+  1962→                </Card>
+  1963→              )}
+  1964→            </motion.div>
+  1965→          )}
+  1966→        </AnimatePresence>
+  1967→      </main>
+  1968→
+  1969→      {/* ============================================================ */}
+  1970→      {/*  FOOTER                                                       */}
+  1971→      {/* ============================================================ */}
+  1972→      <footer className="border-t border-border/50 mt-auto">
+  1973→        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+  1974→          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+  1975→            <div className="flex items-center gap-2.5">
+  1976→              <PostPilotLogo className="h-8 w-8" />
+  1977→              <span className="text-sm font-semibold">PostPilot</span>
+  1978→            </div>
+  1979→            <p className="text-xs text-muted-foreground">
+  1980→              Built with AI. Designed for creators. &copy; 2026 PostPilot.
+  1981→            </p>
+  1982→            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+  1983→              <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">
+  1984→                Pricing
+  1985→              </button>
+  1986→              <button onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">
+  1987→                Features
+  1988→              </button>
+  1989→              <span className="text-orange-500 font-medium">v2.1</span>
+  1990→            </div>
+  1991→          </div>
+  1992→        </div>
+  1993→      </footer>
+  1994→
+  1995→      {/* ============================================================ */}
+  1996→      {/*  AUTH MODAL                                                   */}
+  1997→      {/* ============================================================ */}
+  1998→      <AnimatePresence>
+  1999→        {showAuthModal && (
+  2000→          <motion.div
+
+[showing lines 1-2000 of 2179; use offset=2001 with limit to continue reading]
