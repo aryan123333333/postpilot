@@ -1,21 +1,22 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine AS deps
+WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
+COPY package.json package-lock.json* prisma/ ./
+RUN npm ci
 
-FROM base AS deps
+FROM deps AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
-COPY prisma ./prisma/
-RUN npm ci --prefer-offline
-
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
-RUN npm run build
-RUN node scripts/copy-prisma.mjs
+RUN next build
+# Manually copy what the postbuild script does
+RUN cp -r node_modules/.prisma .next/standalone/node_modules/.prisma
+RUN cp -r node_modules/@prisma .next/standalone/node_modules/@prisma
+RUN cp -r prisma .next/standalone/prisma
+RUN cp -r public .next/standalone/public
+RUN cp -r .next/static .next/standalone/.next/static
 
-FROM base AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
