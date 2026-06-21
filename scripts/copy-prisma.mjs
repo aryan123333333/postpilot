@@ -40,4 +40,20 @@ if (existsSync(schemaDir)) {
   console.log("Copied prisma/ → standalone");
 }
 
-console.log("Prisma files copied to standalone build successfully.");
+// Copy public folder (static assets like favicon, logo, robots.txt)
+const publicDir = join(root, "public");
+const standalonePublic = join(standaloneDir, "public");
+if (existsSync(publicDir)) {
+  cpSync(publicDir, standalonePublic, { recursive: true });
+  console.log("Copied public/ → standalone");
+}
+
+// Copy .next/static (compiled CSS, JS bundles, images)
+const staticDir = join(root, ".next", "static");
+const standaloneStatic = join(standaloneDir, ".next", "static");
+if (existsSync(staticDir)) {
+  cpSync(staticDir, standaloneStatic, { recursive: true });
+  console.log("Copied .next/static → standalone");
+}
+
+console.log("All build assets copied to standalone output successfully.");
