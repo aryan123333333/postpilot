@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession, signIn, signOut } from 'next-auth/react';
+import { useTheme } from 'next-themes';
 import {
   Zap,
   Copy,
@@ -52,6 +53,26 @@ import {
   Mail,
   Lock,
   ArrowLeft,
+  Sun,
+  Moon,
+  Target,
+  CalendarDays,
+  BookTemplate,
+  ImageIcon,
+  AudioLines,
+  Download,
+  ChevronLeft,
+  Plus,
+  Trash2,
+  Flame,
+  MessageCircle,
+  Megaphone,
+  BookOpen,
+  Camera,
+  Trophy,
+  GraduationCap,
+  Heart,
+  PenTool,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -59,9 +80,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Types                                                              */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 interface GeneratedPost {
   id: string;
@@ -69,6 +90,11 @@ interface GeneratedPost {
   platform: string;
   copied: boolean;
   scheduled?: boolean;
+  viralScore?: number;
+  estimatedLikes?: number;
+  estimatedComments?: number;
+  estimatedShares?: number;
+  generatedImage?: string;
 }
 
 interface PricingPlan {
@@ -81,9 +107,32 @@ interface PricingPlan {
   popular?: boolean;
 }
 
-/* ------------------------------------------------------------------ */
+interface CalendarPost {
+  id: string;
+  date: string;
+  content: string;
+  platform: string;
+}
+
+interface PostTemplate {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  topic: string;
+  tone: string;
+}
+
+interface BrandVoice {
+  id: string;
+  name: string;
+  description: string;
+  systemPrompt: string;
+}
+
+/* ================================================================== */
 /*  Data                                                               */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 const PLATFORMS = [
   { id: 'twitter', name: 'Twitter / X', icon: Twitter, color: '#1DA1F2', desc: 'Short & punchy tweets' },
@@ -95,12 +144,23 @@ const PLATFORMS = [
 ] as const;
 
 const TONES = [
-  { id: 'professional', label: 'Serious', emoji: '\ud83d\udcbc' },
-  { id: 'casual', label: 'Chill', emoji: '\ud83d\ude0e' },
-  { id: 'humorous', label: 'Funny', emoji: '\ud83d\ude02' },
-  { id: 'inspirational', label: 'Motivation', emoji: '\ud83d\ude80' },
-  { id: 'provocative', label: 'Bold', emoji: '\ud83d\udd25' },
-  { id: 'educational', label: 'Teach', emoji: '\ud83d\udcda' },
+  { id: 'professional', label: 'Serious', emoji: '💼' },
+  { id: 'casual', label: 'Chill', emoji: '😎' },
+  { id: 'humorous', label: 'Funny', emoji: '😂' },
+  { id: 'inspirational', label: 'Motivation', emoji: '🚀' },
+  { id: 'provocative', label: 'Bold', emoji: '🔥' },
+  { id: 'educational', label: 'Teach', emoji: '📚' },
+] as const;
+
+const APP_TABS = [
+  { id: 'generate', label: 'Generate', icon: Sparkles },
+  { id: 'hooks', label: 'Hook Lab', icon: Target },
+  { id: 'hashtags', label: 'Hashtag Lab', icon: Hash },
+  { id: 'thread', label: 'Thread Builder', icon: MessageSquare },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'templates', label: 'Templates', icon: BookTemplate },
+  { id: 'images', label: 'AI Images', icon: ImageIcon },
+  { id: 'voices', label: 'Brand Voices', icon: AudioLines },
 ] as const;
 
 const FEATURES = [
@@ -242,9 +302,29 @@ const TESTIMONIALS = [
   },
 ];
 
-/* ------------------------------------------------------------------ */
+const DEFAULT_TEMPLATES: PostTemplate[] = [
+  { id: 'tpl-1', name: 'Product Launch', icon: '🚀', description: 'Announce a new product with maximum impact', topic: 'Launch of our new AI-powered productivity tool that automates 80% of repetitive tasks', tone: 'provocative' },
+  { id: 'tpl-2', name: 'Motivational Quote', icon: '💎', description: 'Inspire your audience with powerful words', topic: 'Why consistency beats talent every time and how small daily habits create extraordinary results', tone: 'inspirational' },
+  { id: 'tpl-3', name: 'How-To Guide', icon: '📖', description: 'Share step-by-step knowledge', topic: '5-step guide to doubling your productivity using time-blocking and the Pomodoro technique', tone: 'educational' },
+  { id: 'tpl-4', name: 'Behind the Scenes', icon: '🎬', description: 'Show the human side of your brand', topic: 'A day in the life of our startup team building features users actually love', tone: 'casual' },
+  { id: 'tpl-5', name: 'Testimonial', icon: '⭐', description: 'Share social proof from happy customers', topic: 'How our customer grew their revenue by 300% using our platform in just 6 months', tone: 'professional' },
+  { id: 'tpl-6', name: 'Poll/Question', icon: '📊', description: 'Drive engagement with questions', topic: 'What is the one skill that helped your career the most — hard skills or soft skills?', tone: 'casual' },
+  { id: 'tpl-7', name: 'News/Journal', icon: '📰', description: 'Share industry news with your take', topic: 'Breaking: AI content tools are changing how brands approach social media marketing in 2026', tone: 'professional' },
+  { id: 'tpl-8', name: 'Storytelling', icon: '✍️', description: 'Tell compelling stories that resonate', topic: 'The unexpected lesson I learned from failing my first business and how it led to my biggest success', tone: 'inspirational' },
+];
+
+const DEFAULT_BRAND_VOICES: BrandVoice[] = [
+  { id: 'bv-1', name: 'Startup Tech', description: 'Bold, fast-paced, innovation-focused. Think Silicon Valley energy.', systemPrompt: 'Write like a tech startup founder who is excited about innovation. Use industry jargon sparingly but effectively. Be bold about claims, reference data points, and maintain a forward-thinking energy. Short sentences. High impact.' },
+  { id: 'bv-2', name: 'Luxury Brand', description: 'Sophisticated, exclusive, aspirational. Think high-end fashion house.', systemPrompt: 'Write with the elegance and exclusivity of a luxury brand. Use refined language, subtle sophistication, and aspirational messaging. Avoid slang and casual phrasing. Create a sense of exclusivity and desirability. Understated but powerful.' },
+  { id: 'bv-3', name: 'Casual Creator', description: 'Friendly, relatable, conversational. Think YouTuber energy.', systemPrompt: 'Write like a popular creator talking directly to their community. Use casual language, conversational tone, and relatable examples. Include personal touches and "I" statements. Feel like a text from a smart friend.' },
+  { id: 'bv-4', name: 'Corporate', description: 'Professional, polished, trustworthy. Think Fortune 500.', systemPrompt: 'Write in a polished corporate style that is professional without being stiff. Use clear business language, reference industry standards and best practices. Maintain authority and credibility while being approachable.' },
+  { id: 'bv-5', name: 'Edgy/Gen Z', description: 'Raw, authentic, unfiltered. Think TikTok creator.', systemPrompt: 'Write like a Gen Z creator who is unapologetically authentic. Use current internet slang and cultural references. Be direct, slightly provocative, and emotionally honest. Break the fourth wall. No corporate speak.' },
+  { id: 'bv-6', name: 'Motivational Coach', description: 'Uplifting, empowering, action-oriented. Think Tony Robbins energy.', systemPrompt: 'Write like a motivational coach who genuinely cares about people\'s growth. Use empowering language, action-oriented statements, and emotional triggers. Inspire people to take immediate action. Use "you" statements frequently.' },
+];
+
+/* ================================================================== */
 /*  Logo Component                                                     */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 function PostPilotLogo({ className }: { className?: string }) {
   return (
@@ -268,18 +348,65 @@ function PostPilotLogo({ className }: { className?: string }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Helper: unique ID                                                  */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 let idCounter = 0;
 function uid() {
   return `post-${++idCounter}-${Date.now()}`;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+/*  Viral Score Calculator                                             */
+/* ================================================================== */
+
+function calculateViralScore(content: string): { score: number; likes: number; comments: number; shares: number } {
+  let score = 40;
+  const lower = content.toLowerCase();
+
+  // Pattern interrupts
+  if (/nobody talks about|stop scrolling|pov:|the #\d+ reason|what if i told you/i.test(lower)) score += 12;
+  // Questions drive engagement
+  if (/\?$/.test(lower.trim()) || /what do you think|agree\?|your thoughts/i.test(lower)) score += 8;
+  // Emotional words
+  if (/incredible|amazing|unbelievable|insane|mind-blowing|shocking/i.test(lower)) score += 7;
+  // CTA
+  if (/follow|subscribe|save this|share|retweet|comment/i.test(lower)) score += 6;
+  // Numbers/stats
+  if (/\d+%|\$[\d,]+|\d+x|\d+k|\d+\s*(million|thousand)/i.test(lower)) score += 8;
+  // Short and punchy (good for Twitter/TikTok)
+  if (content.length < 200) score += 5;
+  // Lines (good structure)
+  if (content.split('\n').length > 3) score += 4;
+  // Emoji usage
+  if (/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(lower)) score += 3;
+
+  score = Math.min(98, Math.max(15, score));
+
+  const followers = 10000;
+  return {
+    score,
+    likes: Math.round((score / 100) * followers * (0.02 + Math.random() * 0.08)),
+    comments: Math.round((score / 100) * followers * (0.003 + Math.random() * 0.01)),
+    shares: Math.round((score / 100) * followers * (0.005 + Math.random() * 0.015)),
+  };
+}
+
+function ViralScoreBadge({ score }: { score: number }) {
+  const color = score >= 70 ? 'bg-green-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
+  const label = score >= 70 ? 'Viral' : score >= 40 ? 'Trending' : 'Average';
+  return (
+    <span className={`inline-flex items-center gap-1 ${color} text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+      <Flame className="h-2.5 w-2.5" />
+      {score}/100 · {label}
+    </span>
+  );
+}
+
+/* ================================================================== */
 /*  Admin Stats Types                                                  */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 interface AdminStats {
   totalGenerations: number;
@@ -302,14 +429,54 @@ interface AdminStats {
   uptime: number;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+/*  localStorage helpers                                               */
+/* ================================================================== */
+
+function getCalendarPosts(): CalendarPost[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('postpilot-calendar');
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+function saveCalendarPosts(posts: CalendarPost[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('postpilot-calendar', JSON.stringify(posts));
+}
+function getCustomTemplates(): PostTemplate[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('postpilot-templates');
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+function saveCustomTemplates(t: PostTemplate[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('postpilot-templates', JSON.stringify(t));
+}
+function getCustomVoices(): BrandVoice[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('postpilot-voices');
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+function saveCustomVoices(v: BrandVoice[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('postpilot-voices', JSON.stringify(v));
+}
+
+/* ================================================================== */
 /*  Main Page Component                                                */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 function HomeContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
+  const { theme, setTheme } = useTheme();
   const [activeView, setActiveView] = useState<'landing' | 'app' | 'admin'>('landing');
+  const [activeTab, setActiveTab] = useState('generate');
 
   /* After sign-in, redirect to app view if callbackUrl had view=app */
   useEffect(() => {
@@ -337,6 +504,63 @@ function HomeContent() {
   const [credits, setCredits] = useState<number | null>(null);
   const [userPlan, setUserPlan] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+
+  /* Hook Lab state */
+  const [hookTopic, setHookTopic] = useState('');
+  const [hookTone, setHookTone] = useState('casual');
+  const [hooks, setHooks] = useState<string[]>([]);
+  const [isGeneratingHooks, setIsGeneratingHooks] = useState(false);
+
+  /* Hashtag Lab state */
+  const [hashtagTopic, setHashtagTopic] = useState('');
+  const [hashtagPlatform, setHashtagPlatform] = useState('instagram');
+  const [hashtags, setHashtags] = useState<{ trending: string[]; niche: string[]; broad: string[] } | null>(null);
+  const [isGeneratingHashtags, setIsGeneratingHashtags] = useState(false);
+
+  /* Thread Builder state */
+  const [threadTopic, setThreadTopic] = useState('');
+  const [threadTone, setThreadTone] = useState('casual');
+  const [threadTweets, setThreadTweets] = useState<string[]>([]);
+  const [threadType, setThreadType] = useState<'thread' | 'carousel'>('thread');
+  const [isGeneratingThread, setIsGeneratingThread] = useState(false);
+
+  /* Calendar state */
+  const [calendarPosts, setCalendarPosts] = useState<CalendarPost[]>([]);
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<number | null>(null);
+
+  /* Templates state */
+  const [customTemplates, setCustomTemplates] = useState<PostTemplate[]>([]);
+  const [showNewTemplate, setShowNewTemplate] = useState(false);
+  const [newTplName, setNewTplName] = useState('');
+  const [newTplTopic, setNewTplTopic] = useState('');
+  const [newTplTone, setNewTplTone] = useState('casual');
+  const [newTplDesc, setNewTplDesc] = useState('');
+
+  /* Brand Voices state */
+  const [customVoices, setCustomVoices] = useState<BrandVoice[]>([]);
+  const [activeVoice, setActiveVoice] = useState<string | null>(null);
+  const [showNewVoice, setShowNewVoice] = useState(false);
+  const [newVoiceName, setNewVoiceName] = useState('');
+  const [newVoiceDesc, setNewVoiceDesc] = useState('');
+  const [newVoicePrompt, setNewVoicePrompt] = useState('');
+
+  /* AI Images state */
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [generatedImages, setGeneratedImages] = useState<{ id: string; prompt: string; image: string }[]>([]);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
+  /* Admin state */
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+  const [adminLoading, setAdminLoading] = useState(false);
+
+  /* Load from localStorage */
+  useEffect(() => {
+    setCalendarPosts(getCalendarPosts());
+    setCustomTemplates(getCustomTemplates());
+    setCustomVoices(getCustomVoices());
+  }, []);
 
   /* Require sign-in before accessing the app */
   const goToApp = () => {
@@ -450,9 +674,9 @@ function HomeContent() {
     setGeneratedPosts([]);
 
     try {
-      // If multi-platform, generate for each selected platform
       const allResults: GeneratedPost[] = [];
-      
+      const activeVoiceObj = [...DEFAULT_BRAND_VOICES, ...customVoices].find(v => v.id === activeVoice);
+
       for (const platform of selectedPlatforms) {
         const res = await fetch('/api/generate', {
           method: 'POST',
@@ -463,7 +687,7 @@ function HomeContent() {
             tone: selectedTone,
             count: postCount,
             mode: inputMode === 'repurpose' ? 'repurpose' : 'generate',
-            brandVoice: brandVoice.trim() || undefined,
+            brandVoice: activeVoiceObj ? activeVoiceObj.systemPrompt : (brandVoice.trim() || undefined),
             userId: status === 'authenticated' ? (session?.user as any)?.id : undefined,
           }),
         });
@@ -482,25 +706,29 @@ function HomeContent() {
           continue;
         }
 
-        // Update credits from response
-        if (data.creditsRemaining !== undefined) {
-          setCredits(data.creditsRemaining);
-        }
+        if (data.creditsRemaining !== undefined) setCredits(data.creditsRemaining);
         if (data.plan) setUserPlan(data.plan);
 
-        const posts: GeneratedPost[] = data.posts.map((content: string) => ({
-          id: uid(),
-          content,
-          platform: data.platform,
-          copied: false,
-        }));
+        const posts: GeneratedPost[] = data.posts.map((content: string) => {
+          const viral = calculateViralScore(content);
+          return {
+            id: uid(),
+            content,
+            platform: data.platform,
+            copied: false,
+            viralScore: viral.score,
+            estimatedLikes: viral.likes,
+            estimatedComments: viral.comments,
+            estimatedShares: viral.shares,
+          };
+        });
 
         allResults.push(...posts.slice(0, postCount));
       }
 
       setGeneratedPosts(allResults);
       setGenerationsUsed((prev) => prev + 1);
-      
+
       const platformNames = selectedPlatforms.map((id) => PLATFORMS.find((p) => p.id === id)?.name).filter(Boolean).join(', ');
       toast.success(`Generated ${allResults.length} posts across ${platformNames}!`);
     } catch {
@@ -511,7 +739,162 @@ function HomeContent() {
   }
 
   /* ---------------------------------------------------------------- */
-  /*  Copy handler                                                     */
+  /*  Hook Generator handler                                            */
+  /* ---------------------------------------------------------------- */
+
+  async function handleGenerateHooks() {
+    if (!hookTopic.trim() || hookTopic.trim().length < 3) {
+      toast.error('Enter a topic for hook generation');
+      return;
+    }
+    setIsGeneratingHooks(true);
+    setHooks([]);
+    try {
+      const activeVoiceObj = [...DEFAULT_BRAND_VOICES, ...customVoices].find(v => v.id === activeVoice);
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: hookTopic.trim(),
+          platform: 'twitter',
+          tone: hookTone,
+          count: 5,
+          mode: 'hook',
+          brandVoice: activeVoiceObj ? activeVoiceObj.systemPrompt : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.hooks) {
+        setHooks(data.hooks);
+        toast.success(`Generated ${data.hooks.length} viral hooks!`);
+      } else {
+        toast.error('Failed to generate hooks');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setIsGeneratingHooks(false);
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Hashtag Generator handler                                         */
+  /* ---------------------------------------------------------------- */
+
+  async function handleGenerateHashtags() {
+    if (!hashtagTopic.trim() || hashtagTopic.trim().length < 3) {
+      toast.error('Enter a topic for hashtag generation');
+      return;
+    }
+    setIsGeneratingHashtags(true);
+    setHashtags(null);
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: hashtagTopic.trim(),
+          platform: hashtagPlatform,
+          tone: 'casual',
+          count: 15,
+          mode: 'hashtags',
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.rawHashtags) {
+        // Parse the hashtags
+        const raw = data.rawHashtags;
+        const trendingMatch = raw.match(/(?:TRENDING:)\s*([\s\S]*?)(?:\n\s*\n|\nNICHE:)/i);
+        const nicheMatch = raw.match(/(?:NICHE:)\s*([\s\S]*?)(?:\n\s*\n|\nBROAD:)/i);
+        const broadMatch = raw.match(/(?:BROAD:)\s*([\s\S]*?)$/i);
+        const parseH = (s: string) => (s.match(/#[\w]+/g) || []);
+        setHashtags({
+          trending: parseH(trendingMatch?.[1] || ''),
+          niche: parseH(nicheMatch?.[1] || ''),
+          broad: parseH(broadMatch?.[1] || ''),
+        });
+        toast.success('Hashtags generated!');
+      } else {
+        toast.error('Failed to generate hashtags');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setIsGeneratingHashtags(false);
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Thread Builder handler                                            */
+  /* ---------------------------------------------------------------- */
+
+  async function handleGenerateThread() {
+    if (!threadTopic.trim() || threadTopic.trim().length < 3) {
+      toast.error('Enter a topic for thread/carousel generation');
+      return;
+    }
+    setIsGeneratingThread(true);
+    setThreadTweets([]);
+    try {
+      const activeVoiceObj = [...DEFAULT_BRAND_VOICES, ...customVoices].find(v => v.id === activeVoice);
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: threadTopic.trim(),
+          tone: threadTone,
+          count: 7,
+          mode: threadType === 'thread' ? 'thread' : 'carousel',
+          brandVoice: activeVoiceObj ? activeVoiceObj.systemPrompt : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setThreadTweets(threadType === 'thread' ? (data.tweets || []) : (data.slides || []));
+        toast.success(`${threadType === 'thread' ? 'Thread' : 'Carousel'} generated!`);
+      } else {
+        toast.error('Failed to generate');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setIsGeneratingThread(false);
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  AI Image handler                                                 */
+  /* ---------------------------------------------------------------- */
+
+  async function handleGenerateImage(prompt?: string) {
+    const imgPrompt = prompt || imagePrompt.trim();
+    if (!imgPrompt || imgPrompt.length < 3) {
+      toast.error('Enter a prompt for image generation');
+      return;
+    }
+    setIsGeneratingImage(true);
+    try {
+      const res = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: imgPrompt }),
+      });
+      const data = await res.json();
+      if (data.success && data.image) {
+        setGeneratedImages(prev => [{ id: uid(), prompt: imgPrompt, image: data.image }, ...prev]);
+        toast.success('Image generated!');
+      } else {
+        toast.error(data.error || 'Failed to generate image');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Copy handlers                                                     */
   /* ---------------------------------------------------------------- */
 
   function handleCopy(postId: string, text: string) {
@@ -522,6 +905,10 @@ function HomeContent() {
         setGeneratedPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, copied: false } : p)));
       }, 2000);
     });
+  }
+
+  function handleCopyText(text: string, label: string) {
+    navigator.clipboard.writeText(text).then(() => toast.success(`${label} copied!`));
   }
 
   /* ---------------------------------------------------------------- */
@@ -568,6 +955,78 @@ function HomeContent() {
     return <Icon className={className || 'h-5 w-5'} style={{ color: p.color }} />;
   };
 
+  /* ---------------------------------------------------------------- */
+  /*  Apply template to main generator                                 */
+  /* ---------------------------------------------------------------- */
+
+  function applyTemplate(tpl: PostTemplate) {
+    setTopic(tpl.topic);
+    setSelectedTone(tpl.tone);
+    setActiveTab('generate');
+    toast.success(`Template "${tpl.name}" applied! Click Generate to create posts.`);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Add post to calendar                                             */
+  /* ---------------------------------------------------------------- */
+
+  function addPostToCalendar(post: GeneratedPost) {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const newPost: CalendarPost = { id: uid(), date: dateStr, content: post.content.slice(0, 100), platform: post.platform };
+    const updated = [...calendarPosts, newPost];
+    setCalendarPosts(updated);
+    saveCalendarPosts(updated);
+    toast.success('Post added to calendar!');
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Calendar helpers                                                */
+  /* ---------------------------------------------------------------- */
+
+  const calendarDaysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+  const calendarFirstDay = new Date(calendarYear, calendarMonth, 1).getDay();
+  const calendarMonthName = new Date(calendarYear, calendarMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
+  const getPostsForDay = (day: number) => {
+    const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return calendarPosts.filter(p => p.date === dateStr);
+  };
+
+  function prevMonth() {
+    if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(calendarYear - 1); }
+    else setCalendarMonth(calendarMonth - 1);
+  }
+  function nextMonth() {
+    if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(calendarYear + 1); }
+    else setCalendarMonth(calendarMonth + 1);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Save custom voice/template                                      */
+  /* ---------------------------------------------------------------- */
+
+  function saveNewVoice() {
+    if (!newVoiceName.trim() || !newVoicePrompt.trim()) return;
+    const voice: BrandVoice = { id: uid(), name: newVoiceName, description: newVoiceDesc, systemPrompt: newVoicePrompt };
+    const updated = [...customVoices, voice];
+    setCustomVoices(updated);
+    saveCustomVoices(updated);
+    setNewVoiceName(''); setNewVoiceDesc(''); setNewVoicePrompt('');
+    setShowNewVoice(false);
+    toast.success('Brand voice saved!');
+  }
+
+  function saveNewTemplate() {
+    if (!newTplName.trim() || !newTplTopic.trim()) return;
+    const tpl: PostTemplate = { id: uid(), name: newTplName, icon: '📝', description: newTplDesc, topic: newTplTopic, tone: newTplTone };
+    const updated = [...customTemplates, tpl];
+    setCustomTemplates(updated);
+    saveCustomTemplates(updated);
+    setNewTplName(''); setNewTplTopic(''); setNewTplDesc(''); setNewTplTone('casual');
+    setShowNewTemplate(false);
+    toast.success('Template saved!');
+  }
+
   /* ================================================================= */
   /*  RENDER                                                           */
   /* ================================================================= */
@@ -604,6 +1063,16 @@ function HomeContent() {
 
           {/* CTA + Mobile Toggle */}
           <div className="flex items-center gap-3">
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+              aria-label="Toggle theme"
+            >
+              <Sun className="h-4 w-4 hidden dark:block" />
+              <Moon className="h-4 w-4 block dark:hidden" />
+            </button>
+
             {credits !== null && (
               <Badge variant="secondary" className="hidden sm:flex text-xs gap-1.5">
                 <Zap className="h-3 w-3 text-orange-500" />
@@ -712,7 +1181,6 @@ function HomeContent() {
             >
               {/* HERO */}
               <section className="relative overflow-hidden">
-                {/* Background gradient */}
                 <div className="absolute inset-0 -z-10">
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-gradient-to-br from-orange-200/40 via-amber-100/30 to-transparent blur-3xl" />
                   <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-gradient-to-tl from-orange-100/20 to-transparent blur-3xl" />
@@ -720,19 +1188,13 @@ function HomeContent() {
 
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pt-28 lg:pb-32">
                   <div className="text-center max-w-4xl mx-auto">
-                    {/* Badge */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5 }}
-                    >
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                       <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium rounded-full">
                         <Sparkles className="h-3.5 w-3.5 mr-1.5 text-orange-500" />
                         Trusted by 12,000+ creators & brands
                       </Badge>
                     </motion.div>
 
-                    {/* Headline */}
                     <motion.h1
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -748,7 +1210,6 @@ function HomeContent() {
                       <span className="gradient-text">every platform</span>
                     </motion.h1>
 
-                    {/* Subhead */}
                     <motion.p
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -759,7 +1220,6 @@ function HomeContent() {
                       in seconds. Repurpose articles, train your brand voice, and schedule posts — all in one dashboard.
                     </motion.p>
 
-                    {/* CTA Buttons */}
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -784,7 +1244,6 @@ function HomeContent() {
                       </Button>
                     </motion.div>
 
-                    {/* Social proof */}
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -1027,7 +1486,7 @@ function HomeContent() {
           )}
 
           {/* -------------------------------------------------------- */}
-          {/*  APP VIEW — Content Generator                              */}
+          {/*  APP VIEW — Content Generator with Tabs                     */}
           {/* -------------------------------------------------------- */}
           {activeView === 'app' && (
             <motion.div
@@ -1039,13 +1498,13 @@ function HomeContent() {
               className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12"
             >
               {/* App Header */}
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-6">
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                    Content Generator
+                    Content Studio
                   </h1>
                   <p className="text-muted-foreground mt-1">
-                    Enter a topic or repurpose content — AI crafts viral posts for your platforms
+                    AI-powered social media content creation suite
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1053,9 +1512,6 @@ function HomeContent() {
                     <Zap className="h-3 w-3 text-orange-500" />
                     {credits !== null ? (credits > 0 ? `${credits} credits left` : 'No credits') : '—'}
                   </Badge>
-                  {userPlan && (
-                    <Badge variant="outline" className="text-xs capitalize">{userPlan}</Badge>
-                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -1067,514 +1523,1148 @@ function HomeContent() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-8">
-                {/* LEFT: Controls */}
-                <div className="space-y-6">
+              {/* Tab Navigation */}
+              <div className="mb-8 overflow-x-auto pb-2">
+                <div className="flex items-center gap-1 min-w-max">
+                  {APP_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer whitespace-nowrap ${
+                        activeTab === tab.id
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <tab.icon className="h-4 w-4" />
+                      <span className="hidden sm:inline">{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                  {/* Input Mode Toggle */}
-                  <Card className="rounded-2xl border-border/50">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <label className="text-sm font-semibold">
-                          <Sparkles className="h-4 w-4 inline mr-1.5 text-orange-500" />
-                          Content Source
-                        </label>
-                        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-                          <button
-                            onClick={() => setInputMode('topic')}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                              inputMode === 'topic'
-                                ? 'bg-background shadow-sm text-foreground'
-                                : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                          >
-                            <Lightbulb className="h-3 w-3 inline mr-1" />
-                            Topic
-                          </button>
-                          <button
-                            onClick={() => setInputMode('repurpose')}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                              inputMode === 'repurpose'
-                                ? 'bg-background shadow-sm text-foreground'
-                                : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                          >
-                            <FileText className="h-3 w-3 inline mr-1" />
-                            Repurpose
-                          </button>
-                        </div>
+              <AnimatePresence mode="wait">
+                {/* ====================================================== */}
+                {/*  TAB: Generate (existing generator)                       */}
+                {/* ====================================================== */}
+                {activeTab === 'generate' && (
+                  <motion.div key="generate" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                    {/* Active Brand Voice indicator */}
+                    {activeVoice && (
+                      <div className="mb-4 flex items-center gap-2">
+                        <AudioLines className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm text-muted-foreground">Voice:</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {[...DEFAULT_BRAND_VOICES, ...customVoices].find(v => v.id === activeVoice)?.name || 'Custom'}
+                        </Badge>
+                        <button onClick={() => setActiveVoice(null)} className="text-xs text-muted-foreground hover:text-foreground cursor-pointer ml-1">✕ Clear</button>
                       </div>
+                    )}
 
-                      {inputMode === 'topic' ? (
-                        <div>
-                          <Textarea
-                            value={topic}
-                            onChange={(e) => setTopic(e.target.value)}
-                            placeholder="e.g. 'How AI is changing remote work in 2026', '5 productivity hacks for entrepreneurs', 'Why every startup needs a content strategy'..."
-                            className="min-h-[100px] resize-none rounded-xl text-sm leading-relaxed"
-                          />
-                          <div className="mt-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{topic.length} characters</span>
-                              <span className={topic.length >= 3 ? 'text-orange-500' : ''}>
-                                {topic.length >= 3 ? 'Ready' : 'Min 3 chars'}
-                              </span>
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-8">
+                      {/* LEFT: Controls */}
+                      <div className="space-y-6">
+                        {/* Input Mode Toggle */}
+                        <Card className="rounded-2xl border-border/50">
+                          <CardContent className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                              <label className="text-sm font-semibold">
+                                <Sparkles className="h-4 w-4 inline mr-1.5 text-orange-500" />
+                                Content Source
+                              </label>
+                              <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                                <button
+                                  onClick={() => setInputMode('topic')}
+                                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${inputMode === 'topic' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                  <Lightbulb className="h-3 w-3 inline mr-1" />Topic
+                                </button>
+                                <button
+                                  onClick={() => setInputMode('repurpose')}
+                                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${inputMode === 'repurpose' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                  <FileText className="h-3 w-3 inline mr-1" />Repurpose
+                                </button>
+                              </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleEnhance}
-                              disabled={isEnhancing || topic.trim().length < 3}
-                              className="text-xs cursor-pointer text-orange-500 hover:text-orange-600 h-7 px-2"
-                            >
-                              {isEnhancing ? (
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              ) : (
-                                <Wand2 className="h-3 w-3 mr-1" />
-                              )}
-                              Enhance Prompt
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <Textarea
-                            value={repurposeText}
-                            onChange={(e) => setRepurposeText(e.target.value)}
-                            placeholder="Paste a blog article, video transcript, newsletter, or any long-form content. PostPilot will break it down and generate unique social media posts from it..."
-                            className="min-h-[140px] resize-none rounded-xl text-sm leading-relaxed"
-                          />
-                          <div className="mt-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Link2 className="h-3 w-3" />
-                              <span>{repurposeText.length} characters</span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleEnhance}
-                              disabled={isEnhancing || repurposeText.trim().length < 3}
-                              className="text-xs cursor-pointer text-orange-500 hover:text-orange-600 h-7 px-2"
-                            >
-                              {isEnhancing ? (
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              ) : (
-                                <Wand2 className="h-3 w-3 mr-1" />
-                              )}
-                              Enhance
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
 
-                  {/* Platform Selector — Multi-select */}
-                  <Card className="rounded-2xl border-border/50">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <label className="text-sm font-semibold">
-                          <Globe className="h-4 w-4 inline mr-1.5 text-orange-500" />
-                          Target Platform{selectedPlatforms.length > 1 ? 's' : ''}
-                        </label>
-                        <div className="flex items-center gap-2">
-                          {selectedPlatforms.length > 1 && (
-                            <Badge variant="secondary" className="text-[10px]">
-                              {selectedPlatforms.length} selected
-                            </Badge>
-                          )}
-                          <button
-                            onClick={() => {
-                              if (selectedPlatforms.length === PLATFORMS.length) {
-                                setSelectedPlatforms(['twitter']);
-                              } else {
-                                setSelectedPlatforms(PLATFORMS.map((p) => p.id));
-                              }
-                            }}
-                            className="text-[10px] text-orange-500 hover:text-orange-600 font-medium cursor-pointer"
-                          >
-                            {selectedPlatforms.length === PLATFORMS.length ? 'Clear all' : 'Select all'}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {PLATFORMS.map((p) => (
-                          <button
-                            key={p.id}
-                            onClick={() => togglePlatform(p.id)}
-                            className={`flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
-                              selectedPlatforms.includes(p.id)
-                                ? 'border-orange-400 bg-orange-50 text-orange-700'
-                                : 'border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
-                            }`}
-                          >
-                            <p.icon className="h-4 w-4" style={{ color: selectedPlatforms.includes(p.id) ? undefined : p.color }} />
-                            <div className="text-left">
-                              <div className="text-xs font-semibold">{p.name}</div>
-                              <div className="text-[10px] opacity-60">{p.desc}</div>
-                            </div>
-                            {selectedPlatforms.includes(p.id) && (
-                              <Check className="h-3 w-3 ml-auto text-orange-500" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Tone + Brand Voice */}
-                  <Card className="rounded-2xl border-border/50">
-                    <CardContent className="p-6 space-y-5">
-                      {/* Tone */}
-                      <div>
-                        <label className="text-sm font-semibold mb-3 block">
-                          <Palette className="h-4 w-4 inline mr-1.5 text-orange-500" />
-                          Tone & Style
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                          {TONES.map((t) => (
-                            <button
-                              key={t.id}
-                              onClick={() => setSelectedTone(t.id)}
-                              className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
-                                selectedTone === t.id
-                                  ? 'border-orange-400 bg-orange-50 text-orange-700'
-                                  : 'border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
-                              }`}
-                            >
-                              {t.emoji} {t.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Brand Voice Toggle */}
-                      <div>
-                        <button
-                          onClick={() => setShowBrandVoice(!showBrandVoice)}
-                          className="flex items-center gap-2 text-sm font-semibold cursor-pointer hover:text-orange-500 transition-colors"
-                        >
-                          <Mic className="h-4 w-4 text-orange-500" />
-                          Brand Voice Training
-                          <ChevronDown className={`h-4 w-4 transition-transform ${showBrandVoice ? 'rotate-180' : ''}`} />
-                          <Badge variant="secondary" className="text-[10px] ml-1">Pro</Badge>
-                        </button>
-                        <AnimatePresence>
-                          {showBrandVoice && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="mt-3">
+                            {inputMode === 'topic' ? (
+                              <div>
                                 <Textarea
-                                  value={brandVoice}
-                                  onChange={(e) => setBrandVoice(e.target.value)}
-                                  placeholder="Describe your brand voice or paste examples of your past posts. E.g., 'I write in a casual, witty tone with lots of analogies. I avoid corporate jargon and use short sentences. My audience is startup founders aged 25-40.'"
+                                  value={topic}
+                                  onChange={(e) => setTopic(e.target.value)}
+                                  placeholder="e.g. 'How AI is changing remote work in 2026', '5 productivity hacks for entrepreneurs'..."
                                   className="min-h-[100px] resize-none rounded-xl text-sm leading-relaxed"
                                 />
-                                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                                  <Info className="h-3 w-3" />
-                                  <span>AI will match this voice in every generated post</span>
+                                <div className="mt-3 flex items-center justify-between">
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span>{topic.length} characters</span>
+                                    <span className={topic.length >= 3 ? 'text-orange-500' : ''}>{topic.length >= 3 ? 'Ready' : 'Min 3 chars'}</span>
+                                  </div>
+                                  <Button variant="ghost" size="sm" onClick={handleEnhance} disabled={isEnhancing || topic.trim().length < 3} className="text-xs cursor-pointer text-orange-500 hover:text-orange-600 h-7 px-2">
+                                    {isEnhancing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
+                                    Enhance Prompt
+                                  </Button>
                                 </div>
                               </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
+                            ) : (
+                              <div>
+                                <Textarea
+                                  value={repurposeText}
+                                  onChange={(e) => setRepurposeText(e.target.value)}
+                                  placeholder="Paste a blog article, video transcript, newsletter, or any long-form content..."
+                                  className="min-h-[140px] resize-none rounded-xl text-sm leading-relaxed"
+                                />
+                                <div className="mt-3 flex items-center justify-between">
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Link2 className="h-3 w-3" />
+                                    <span>{repurposeText.length} characters</span>
+                                  </div>
+                                  <Button variant="ghost" size="sm" onClick={handleEnhance} disabled={isEnhancing || repurposeText.trim().length < 3} className="text-xs cursor-pointer text-orange-500 hover:text-orange-600 h-7 px-2">
+                                    {isEnhancing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
+                                    Enhance
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
 
-                      {/* Post Count */}
-                      <div>
-                        <label className="text-sm font-semibold mb-3 block">
-                          Number of Posts (per platform)
-                        </label>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="range"
-                            min={1}
-                            max={10}
-                            value={postCount}
-                            onChange={(e) => setPostCount(Number(e.target.value))}
-                            className="flex-1 accent-orange-500"
-                          />
-                          <span className="text-sm font-mono font-semibold bg-muted px-3 py-1.5 rounded-lg min-w-[48px] text-center">
-                            {postCount}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Generate Button */}
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={handleGenerate}
-                      disabled={isGenerating || (credits !== null && credits <= 0)}
-                      className="flex-1 gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-6 text-base font-semibold"
-                      size="lg"
-                    >
-                      {isGenerating ? (
-                        <>
-                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="h-5 w-5 mr-2" />
-                          Generate {postCount} Post{postCount > 1 ? 's' : ''}
-                          {selectedPlatforms.length > 1 ? ` x${selectedPlatforms.length} platforms` : ''}
-                        </>
-                      )}
-                    </Button>
-                    {generatedPosts.length > 0 && (
-                      <Button
-                        variant="outline"
-                        onClick={handleClear}
-                        className="rounded-xl px-4 cursor-pointer"
-                        size="lg"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  {credits !== null && credits <= 0 && (
-                    <Card className="rounded-2xl border-orange-300 bg-orange-50/50">
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <Zap className="h-5 w-5 text-orange-500 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-semibold text-orange-700">No credits remaining</p>
-                          <p className="text-xs text-orange-600/70">Upgrade to Pro for 500 credits/month</p>
-                        </div>
-                        <Button size="sm" className="ml-auto gradient-brand text-white border-0 cursor-pointer text-xs">
-                          Upgrade
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-
-                {/* RIGHT: Results */}
-                <div ref={resultsRef}>
-                  {generatedPosts.length === 0 && !isGenerating ? (
-                    <Card className="rounded-2xl border-dashed border-2 border-border/50">
-                      <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
-                        <div className="h-20 w-20 rounded-2xl bg-muted flex items-center justify-center mb-6">
-                          <Sparkles className="h-10 w-10 text-muted-foreground" />
-                        </div>
-                        <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
-                        <p className="text-sm text-muted-foreground max-w-sm">
-                          Enter a topic or paste content to repurpose, choose your platforms and tone, then hit generate. Your AI-crafted posts will appear here with schedule and publish options.
-                        </p>
-                        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-                          <Badge variant="secondary" className="text-[10px]">6 platforms</Badge>
-                          <Badge variant="secondary" className="text-[10px]">6 tones</Badge>
-                          <Badge variant="secondary" className="text-[10px]">Brand voice</Badge>
-                          <Badge variant="secondary" className="text-[10px]">Schedule</Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : isGenerating ? (
-                    <Card className="rounded-2xl border-border/50">
-                      <CardContent className="p-12 flex flex-col items-center justify-center min-h-[400px]">
-                        <div className="relative">
-                          <div className="h-16 w-16 rounded-2xl gradient-brand flex items-center justify-center animate-pulse">
-                            <Zap className="h-8 w-8 text-white" />
-                          </div>
-                          <div className="absolute inset-0 rounded-2xl gradient-brand animate-ping opacity-20" />
-                        </div>
-                        <h3 className="mt-6 text-lg font-semibold">Creating your posts...</h3>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Generating {postCount} post{postCount > 1 ? 's' : ''} for {selectedPlatforms.length} platform{selectedPlatforms.length > 1 ? 's' : ''}
-                        </p>
-                        <div className="mt-6 w-48 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full gradient-brand rounded-full animate-[shimmer_2s_ease-in-out_infinite]" style={{ width: '60%' }} />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-muted-foreground">
-                          Generated Posts
-                          <Badge variant="secondary" className="ml-2">{generatedPosts.length}</Badge>
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          {selectedPlatforms.length === 1 && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              {platformIcon(selectedPlatforms[0], 'h-3.5 w-3.5')}
-                              {PLATFORMS.find((p) => p.id === selectedPlatforms[0])?.name}
+                        {/* Platform Selector */}
+                        <Card className="rounded-2xl border-border/50">
+                          <CardContent className="p-6">
+                            <div className="flex items-center justify-between mb-3">
+                              <label className="text-sm font-semibold">
+                                <Globe className="h-4 w-4 inline mr-1.5 text-orange-500" />
+                                Target Platform{selectedPlatforms.length > 1 ? 's' : ''}
+                              </label>
+                              <div className="flex items-center gap-2">
+                                {selectedPlatforms.length > 1 && <Badge variant="secondary" className="text-[10px]">{selectedPlatforms.length} selected</Badge>}
+                                <button onClick={() => setSelectedPlatforms(selectedPlatforms.length === PLATFORMS.length ? ['twitter'] : PLATFORMS.map(p => p.id))} className="text-[10px] text-orange-500 hover:text-orange-600 font-medium cursor-pointer">
+                                  {selectedPlatforms.length === PLATFORMS.length ? 'Clear all' : 'Select all'}
+                                </button>
+                              </div>
                             </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {PLATFORMS.map((p) => (
+                                <button
+                                  key={p.id}
+                                  onClick={() => togglePlatform(p.id)}
+                                  className={`flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
+                                    selectedPlatforms.includes(p.id) ? 'border-orange-400 bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300' : 'border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
+                                  }`}
+                                >
+                                  <p.icon className="h-4 w-4" style={{ color: selectedPlatforms.includes(p.id) ? undefined : p.color }} />
+                                  <div className="text-left">
+                                    <div className="text-xs font-semibold">{p.name}</div>
+                                    <div className="text-[10px] opacity-60">{p.desc}</div>
+                                  </div>
+                                  {selectedPlatforms.includes(p.id) && <Check className="h-3 w-3 ml-auto text-orange-500" />}
+                                </button>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Tone + Brand Voice */}
+                        <Card className="rounded-2xl border-border/50">
+                          <CardContent className="p-6 space-y-5">
+                            <div>
+                              <label className="text-sm font-semibold mb-3 block">
+                                <Palette className="h-4 w-4 inline mr-1.5 text-orange-500" />
+                                Tone & Style
+                              </label>
+                              <div className="flex flex-wrap gap-2">
+                                {TONES.map((t) => (
+                                  <button
+                                    key={t.id}
+                                    onClick={() => setSelectedTone(t.id)}
+                                    className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+                                      selectedTone === t.id ? 'border-orange-400 bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300' : 'border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
+                                    }`}
+                                  >
+                                    {t.emoji} {t.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="border-t border-border/50 pt-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <label className="text-sm font-semibold flex items-center gap-2">
+                                  <Eye className="h-4 w-4 text-orange-500" />
+                                  Post Count
+                                </label>
+                                <span className="text-xs text-muted-foreground">{postCount} posts</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {[1, 2, 3, 5, 8, 10].map((n) => (
+                                  <button
+                                    key={n}
+                                    onClick={() => setPostCount(n)}
+                                    className={`w-9 h-9 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                                      postCount === n ? 'border-orange-400 bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300' : 'border-border bg-background hover:bg-muted text-muted-foreground'
+                                    }`}
+                                  >
+                                    {n}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => setShowBrandVoice(!showBrandVoice)}
+                              className="flex items-center gap-2 text-sm font-semibold cursor-pointer hover:text-orange-500 transition-colors"
+                            >
+                              <Mic className="h-4 w-4 text-orange-500" />
+                              Custom Brand Voice
+                              <ChevronDown className={`h-4 w-4 transition-transform ${showBrandVoice ? 'rotate-180' : ''}`} />
+                            </button>
+                            <AnimatePresence>
+                              {showBrandVoice && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                  <div className="mt-2">
+                                    <Textarea
+                                      value={brandVoice}
+                                      onChange={(e) => setBrandVoice(e.target.value)}
+                                      placeholder="Describe your brand voice or paste examples of your past posts..."
+                                      className="min-h-[80px] resize-none rounded-xl text-sm leading-relaxed"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground mt-2">Pro Tip: Or use pre-built brand voices in the <button onClick={() => { setActiveTab('voices'); setShowBrandVoice(false); }} className="text-orange-500 hover:underline cursor-pointer">Brand Voices</button> tab.</p>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </CardContent>
+                        </Card>
+
+                        {/* Generate Button */}
+                        <Button
+                          onClick={handleGenerate}
+                          disabled={isGenerating}
+                          className="w-full gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-6 text-base font-semibold"
+                        >
+                          {isGenerating ? (
+                            <>
+                              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-5 w-5 mr-2" />
+                              Generate {postCount} Post{postCount !== 1 ? 's' : ''}
+                              {selectedPlatforms.length > 1 && ` across ${selectedPlatforms.length} platforms`}
+                            </>
                           )}
-                        </div>
+                        </Button>
                       </div>
 
-                      {generatedPosts.map((post, i) => (
+                      {/* RIGHT: Results */}
+                      <div ref={resultsRef}>
+                        {generatedPosts.length === 0 ? (
+                          <Card className="rounded-2xl border-border/50">
+                            <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
+                              <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                                <Sparkles className="h-8 w-8 text-muted-foreground" />
+                              </div>
+                              <h3 className="text-lg font-semibold mb-2">Your generated posts will appear here</h3>
+                              <p className="text-sm text-muted-foreground max-w-sm">
+                                Enter a topic, choose your platform and tone, then hit Generate. Each post comes with a viral score and engagement predictions.
+                              </p>
+                            </CardContent>
+                          </Card>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-sm font-semibold flex items-center gap-2">
+                                <Zap className="h-4 w-4 text-orange-500" />
+                                Generated Posts ({generatedPosts.length})
+                              </h3>
+                              <Button variant="ghost" size="sm" onClick={handleClear} className="text-xs cursor-pointer text-muted-foreground">
+                                Clear All
+                              </Button>
+                            </div>
+
+                            <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+                              {generatedPosts.map((post, i) => (
+                                <motion.div
+                                  key={post.id}
+                                  initial={{ opacity: 0, y: 16 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.3, delay: i * 0.05 }}
+                                >
+                                  <Card className="rounded-2xl border-border/50 overflow-hidden">
+                                    <CardContent className="p-5">
+                                      {/* Post header */}
+                                      <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                          {platformIcon(post.platform)}
+                                          <span className="text-xs font-medium text-muted-foreground">
+                                            {PLATFORMS.find((p) => p.id === post.platform)?.name || post.platform}
+                                          </span>
+                                          {post.viralScore !== undefined && <ViralScoreBadge score={post.viralScore} />}
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <button
+                                            onClick={() => addPostToCalendar(post)}
+                                            className="p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                                            title="Add to Calendar"
+                                          >
+                                            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleGenerateImage(post.content.slice(0, 80))}
+                                            className="p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                                            title="Generate Image"
+                                          >
+                                            <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Post content */}
+                                      <div className="text-sm leading-relaxed whitespace-pre-wrap mb-4">{post.content}</div>
+
+                                      {/* Engagement predictions */}
+                                      {post.viralScore !== undefined && (
+                                        <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
+                                          <div className="flex items-center gap-1"><Heart className="h-3 w-3 text-red-400" />{post.estimatedLikes?.toLocaleString()}</div>
+                                          <div className="flex items-center gap-1"><MessageSquare className="h-3 w-3 text-blue-400" />{post.estimatedComments?.toLocaleString()}</div>
+                                          <div className="flex items-center gap-1"><RefreshCw className="h-3 w-3 text-green-400" />{post.estimatedShares?.toLocaleString()}</div>
+                                        </div>
+                                      )}
+
+                                      {/* Generated image */}
+                                      {post.generatedImage && (
+                                        <div className="mb-4 rounded-xl overflow-hidden border border-border/50">
+                                          <img src={post.generatedImage} alt="Generated" className="w-full h-auto" />
+                                        </div>
+                                      )}
+
+                                      {/* Actions */}
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant={post.copied ? 'secondary' : 'outline'}
+                                          onClick={() => handleCopy(post.id, post.content)}
+                                          className="cursor-pointer text-xs rounded-lg"
+                                        >
+                                          {post.copied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                                          {post.copied ? 'Copied!' : 'Copy'}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => setShowScheduleModal(post.id)}
+                                          className="cursor-pointer text-xs rounded-lg"
+                                        >
+                                          <Clock className="h-3 w-3 mr-1" />
+                                          Schedule
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handlePublishNow(post.id)}
+                                          className="cursor-pointer text-xs rounded-lg"
+                                        >
+                                          <Send className="h-3 w-3 mr-1" />
+                                          Publish
+                                        </Button>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Schedule Modal */}
+                    <AnimatePresence>
+                      {showScheduleModal && (
                         <motion.div
-                          key={post.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                          onClick={() => setShowScheduleModal(null)}
+                        >
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="w-full max-w-sm mx-4"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Card className="rounded-2xl shadow-2xl">
+                              <CardContent className="p-6">
+                                <h3 className="text-sm font-semibold mb-4">Schedule Post</h3>
+                                <div className="space-y-3">
+                                  <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Date</label>
+                                    <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Time</label>
+                                    <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                                  </div>
+                                  <div className="flex gap-2 pt-2">
+                                    <Button size="sm" variant="outline" onClick={() => setShowScheduleModal(null)} className="flex-1 cursor-pointer rounded-lg">Cancel</Button>
+                                    <Button size="sm" onClick={() => handleSchedule(showScheduleModal)} className="flex-1 cursor-pointer rounded-lg gradient-brand text-white border-0">Schedule</Button>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+
+                {/* ====================================================== */}
+                {/*  TAB: Hook Lab                                           */}
+                {/* ====================================================== */}
+                {activeTab === 'hooks' && (
+                  <motion.div key="hooks" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-4xl mx-auto">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="space-y-6">
+                        <Card className="rounded-2xl border-border/50">
+                          <CardContent className="p-6">
+                            <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                              <Target className="h-5 w-5 text-orange-500" />
+                              Hook Generator
+                            </h3>
+                            <p className="text-sm text-muted-foreground mb-4">Generate 5 viral scroll-stopping hooks for any topic</p>
+                            <Textarea
+                              value={hookTopic}
+                              onChange={(e) => setHookTopic(e.target.value)}
+                              placeholder="Enter your topic — e.g. 'Remote work productivity', 'AI in healthcare', 'Personal branding for developers'..."
+                              className="min-h-[100px] resize-none rounded-xl text-sm leading-relaxed mb-4"
+                            />
+                            <div className="mb-4">
+                              <label className="text-xs font-medium text-muted-foreground mb-2 block">Tone</label>
+                              <div className="flex flex-wrap gap-2">
+                                {TONES.map((t) => (
+                                  <button
+                                    key={t.id}
+                                    onClick={() => setHookTone(t.id)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
+                                      hookTone === t.id ? 'border-orange-400 bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300' : 'border-border bg-background hover:bg-muted text-muted-foreground'
+                                    }`}
+                                  >
+                                    {t.emoji} {t.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <Button
+                              onClick={handleGenerateHooks}
+                              disabled={isGeneratingHooks}
+                              className="w-full gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-5"
+                            >
+                              {isGeneratingHooks ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                              Generate 5 Viral Hooks
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <div>
+                        {hooks.length === 0 ? (
+                          <Card className="rounded-2xl border-border/50">
+                            <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[300px]">
+                              <Flame className="h-8 w-8 text-muted-foreground mb-3" />
+                              <h3 className="text-sm font-semibold mb-1">Viral hooks will appear here</h3>
+                              <p className="text-xs text-muted-foreground">Enter a topic and generate hooks that stop the scroll</p>
+                            </CardContent>
+                          </Card>
+                        ) : (
+                          <div className="space-y-3">
+                            <h3 className="text-sm font-semibold flex items-center gap-2">
+                              <Flame className="h-4 w-4 text-orange-500" />
+                              Generated Hooks ({hooks.length})
+                            </h3>
+                            {hooks.map((hook, i) => {
+                              const viral = calculateViralScore(hook);
+                              return (
+                                <motion.div
+                                  key={i}
+                                  initial={{ opacity: 0, x: 20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ duration: 0.3, delay: i * 0.08 }}
+                                >
+                                  <Card className="rounded-xl border-border/50 hover:border-orange-300/50 transition-colors">
+                                    <CardContent className="p-4">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <Badge variant="secondary" className="text-[10px]">Hook #{i + 1}</Badge>
+                                        <ViralScoreBadge score={viral.score} />
+                                      </div>
+                                      <p className="text-sm leading-relaxed mb-3">{hook}</p>
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                          <span>{viral.likes.toLocaleString()} potential likes</span>
+                                        </div>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleCopyText(hook, 'Hook')}
+                                          className="cursor-pointer text-xs h-7 px-2"
+                                        >
+                                          <Copy className="h-3 w-3 mr-1" /> Copy
+                                        </Button>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ====================================================== */}
+                {/*  TAB: Hashtag Lab                                        */}
+                {/* ====================================================== */}
+                {activeTab === 'hashtags' && (
+                  <motion.div key="hashtags" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-4xl mx-auto">
+                    <Card className="rounded-2xl border-border/50 mb-6">
+                      <CardContent className="p-6">
+                        <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                          <Hash className="h-5 w-5 text-orange-500" />
+                          Hashtag Lab
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-4">Generate AI-powered hashtag sets organized by category</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4">
+                          <Textarea
+                            value={hashtagTopic}
+                            onChange={(e) => setHashtagTopic(e.target.value)}
+                            placeholder="Enter your topic — e.g. 'Sustainable fashion', 'Digital marketing trends', 'Fitness coaching'..."
+                            className="min-h-[80px] resize-none rounded-xl text-sm leading-relaxed"
+                          />
+                          <div className="flex flex-col gap-2">
+                            <select
+                              value={hashtagPlatform}
+                              onChange={(e) => setHashtagPlatform(e.target.value)}
+                              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                            >
+                              {PLATFORMS.map((p) => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                              ))}
+                            </select>
+                            <Button
+                              onClick={handleGenerateHashtags}
+                              disabled={isGeneratingHashtags}
+                              className="gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-3"
+                            >
+                              {isGeneratingHashtags ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1.5" />}
+                              Generate
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {hashtags && (
+                      <div className="space-y-4">
+                        {[
+                          { label: 'Trending', icon: TrendingUp, color: 'text-red-500', data: hashtags.trending },
+                          { label: 'Niche', icon: Target, color: 'text-blue-500', data: hashtags.niche },
+                          { label: 'Broad', icon: Globe, color: 'text-green-500', data: hashtags.broad },
+                        ].map((cat) => (
+                          cat.data.length > 0 && (
+                            <Card key={cat.label} className="rounded-2xl border-border/50">
+                              <CardContent className="p-5">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                                    <cat.icon className={`h-4 w-4 ${cat.color}`} />
+                                    {cat.label}
+                                    <Badge variant="secondary" className="text-[10px]">{cat.data.length}</Badge>
+                                  </h4>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {cat.data.map((tag, i) => (
+                                    <motion.button
+                                      key={i}
+                                      initial={{ opacity: 0, scale: 0.9 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      transition={{ delay: i * 0.03 }}
+                                      onClick={() => handleCopyText(tag, 'Hashtag')}
+                                      className="px-3 py-1.5 rounded-lg bg-muted text-sm font-medium hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-500/10 dark:hover:text-orange-300 transition-all cursor-pointer border border-transparent hover:border-orange-200"
+                                    >
+                                      {tag}
+                                    </motion.button>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )
+                        ))}
+
+                        <Button
+                          onClick={() => handleCopyText(
+                            [...hashtags.trending, ...hashtags.niche, ...hashtags.broad].join(' '),
+                            'All hashtags'
+                          )}
+                          className="w-full gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-5"
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy All Hashtags ({[...hashtags.trending, ...hashtags.niche, ...hashtags.broad].length} total)
+                        </Button>
+                      </div>
+                    )}
+
+                    {!hashtags && !isGeneratingHashtags && (
+                      <Card className="rounded-2xl border-border/50">
+                        <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[200px]">
+                          <Hash className="h-8 w-8 text-muted-foreground mb-3" />
+                          <h3 className="text-sm font-semibold mb-1">Hashtag suggestions will appear here</h3>
+                          <p className="text-xs text-muted-foreground">Enter a topic to get trending, niche, and broad hashtags</p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* ====================================================== */}
+                {/*  TAB: Thread Builder                                     */}
+                {/* ====================================================== */}
+                {activeTab === 'thread' && (
+                  <motion.div key="thread" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-4xl mx-auto">
+                    <Card className="rounded-2xl border-border/50 mb-6">
+                      <CardContent className="p-6">
+                        <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                          <MessageSquare className="h-5 w-5 text-orange-500" />
+                          Thread & Carousel Builder
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-4">Generate connected Twitter threads or Instagram carousels</p>
+                        <Textarea
+                          value={threadTopic}
+                          onChange={(e) => setThreadTopic(e.target.value)}
+                          placeholder="Enter your thread/carousel topic — e.g. 'How I built a 6-figure SaaS from scratch', '10 mistakes first-time founders make'..."
+                          className="min-h-[100px] resize-none rounded-xl text-sm leading-relaxed mb-4"
+                        />
+                        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-2 block">Type</label>
+                            <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                              <button
+                                onClick={() => setThreadType('thread')}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${threadType === 'thread' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                              >
+                                <Twitter className="h-3 w-3 inline mr-1" />Thread
+                              </button>
+                              <button
+                                onClick={() => setThreadType('carousel')}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${threadType === 'carousel' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                              >
+                                <Instagram className="h-3 w-3 inline mr-1" />Carousel
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <label className="text-xs font-medium text-muted-foreground mb-2 block">Tone</label>
+                            <select
+                              value={threadTone}
+                              onChange={(e) => setThreadTone(e.target.value)}
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                            >
+                              {TONES.map((t) => (
+                                <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <Button
+                            onClick={handleGenerateThread}
+                            disabled={isGeneratingThread}
+                            className="gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-3 px-6"
+                          >
+                            {isGeneratingThread ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1.5" />}
+                            Generate {threadType === 'thread' ? 'Thread' : 'Carousel'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {threadTweets.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-semibold">
+                            {threadType === 'thread' ? 'Twitter Thread' : 'Instagram Carousel'} ({threadTweets.length} parts)
+                          </h3>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyText(
+                              threadTweets.map((t, i) => `${threadType === 'thread' ? `${i + 1}/${threadTweets.length}` : `Slide ${i + 1}`}:\n${t}`).join('\n\n'),
+                              threadType === 'thread' ? 'Entire thread' : 'Entire carousel'
+                            )}
+                            className="cursor-pointer text-xs rounded-lg"
+                          >
+                            <Copy className="h-3 w-3 mr-1" /> Copy Entire {threadType === 'thread' ? 'Thread' : 'Carousel'}
+                          </Button>
+                        </div>
+
+                        {threadTweets.map((tweet, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.3, delay: i * 0.06 }}
+                          >
+                            <Card className="rounded-xl border-border/50">
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    {threadType === 'thread' ? (
+                                      <Badge variant="secondary" className="text-[10px] font-mono">{i + 1}/{threadTweets.length}</Badge>
+                                    ) : (
+                                      <Badge variant="secondary" className="text-[10px]">Slide {i + 1}</Badge>
+                                    )}
+                                    {i === 0 && <span className="text-[10px] text-orange-500 font-medium">HOOK</span>}
+                                    {i === threadTweets.length - 1 && <span className="text-[10px] text-green-500 font-medium">CTA</span>}
+                                  </div>
+                                  <Button size="sm" variant="ghost" onClick={() => handleCopyText(tweet, `Part ${i + 1}`)} className="cursor-pointer text-xs h-7 px-2">
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <div className="text-sm leading-relaxed whitespace-pre-wrap">{tweet}</div>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+
+                    {threadTweets.length === 0 && !isGeneratingThread && (
+                      <Card className="rounded-2xl border-border/50">
+                        <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[200px]">
+                          <MessageSquare className="h-8 w-8 text-muted-foreground mb-3" />
+                          <h3 className="text-sm font-semibold mb-1">Your {threadType === 'thread' ? 'thread' : 'carousel'} will appear here</h3>
+                          <p className="text-xs text-muted-foreground">Enter a topic and generate connected, engaging content</p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* ====================================================== */}
+                {/*  TAB: Calendar                                           */}
+                {/* ====================================================== */}
+                {activeTab === 'calendar' && (
+                  <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-4xl mx-auto">
+                    <Card className="rounded-2xl border-border/50">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-lg font-semibold flex items-center gap-2">
+                            <CalendarDays className="h-5 w-5 text-orange-500" />
+                            Content Calendar
+                          </h3>
+                          <div className="flex items-center gap-2">
+                            <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer">
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <span className="text-sm font-medium min-w-[160px] text-center">{calendarMonthName}</span>
+                            <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer">
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Calendar Grid */}
+                        <div className="grid grid-cols-7 gap-1 mb-2">
+                          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                            <div key={d} className="text-center text-[10px] font-medium text-muted-foreground py-2">{d}</div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1">
+                          {[...Array(calendarFirstDay)].map((_, i) => (
+                            <div key={`empty-${i}`} className="h-12 sm:h-16" />
+                          ))}
+                          {[...Array(calendarDaysInMonth)].map((_, i) => {
+                            const day = i + 1;
+                            const dayPosts = getPostsForDay(day);
+                            const isToday = day === new Date().getDate() && calendarMonth === new Date().getMonth() && calendarYear === new Date().getFullYear();
+                            const isSelected = selectedCalendarDay === day;
+                            return (
+                              <button
+                                key={day}
+                                onClick={() => setSelectedCalendarDay(isSelected ? null : day)}
+                                className={`h-12 sm:h-16 rounded-lg text-xs font-medium transition-all cursor-pointer relative flex flex-col items-center justify-center gap-0.5 ${
+                                  isSelected ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 border border-orange-300' :
+                                  isToday ? 'bg-primary text-primary-foreground' :
+                                  'hover:bg-muted border border-transparent'
+                                }`}
+                              >
+                                <span>{day}</span>
+                                {dayPosts.length > 0 && (
+                                  <div className="flex gap-0.5">
+                                    {dayPosts.slice(0, 3).map((_, j) => (
+                                      <div key={j} className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                                    ))}
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Selected Day Posts */}
+                        {selectedCalendarDay && (
+                          <div className="mt-6 border-t border-border/50 pt-4">
+                            <h4 className="text-sm font-semibold mb-3">
+                              Posts for {calendarMonthName} {selectedCalendarDay}
+                              {getPostsForDay(selectedCalendarDay).length === 0 && ' — No posts scheduled'}
+                            </h4>
+                            {getPostsForDay(selectedCalendarDay).length > 0 && (
+                              <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {getPostsForDay(selectedCalendarDay).map((post) => (
+                                  <div key={post.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 text-sm">
+                                    {platformIcon(post.platform, 'h-4 w-4')}
+                                    <span className="flex-1 truncate text-muted-foreground">{post.content}</span>
+                                    <button
+                                      onClick={() => {
+                                        const updated = calendarPosts.filter(p => p.id !== post.id);
+                                        setCalendarPosts(updated);
+                                        saveCalendarPosts(updated);
+                                        toast.success('Post removed from calendar');
+                                      }}
+                                      className="p-1 rounded hover:bg-destructive/10 cursor-pointer text-muted-foreground hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Calendar stats */}
+                        <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-orange-500" />{calendarPosts.length} posts scheduled</span>
+                          <span>Stored in your browser (localStorage)</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+                {/* ====================================================== */}
+                {/*  TAB: Templates                                         */}
+                {/* ====================================================== */}
+                {activeTab === 'templates' && (
+                  <motion.div key="templates" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-4xl mx-auto">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <BookTemplate className="h-5 w-5 text-orange-500" />
+                        Post Templates
+                      </h3>
+                      <Button size="sm" variant="outline" onClick={() => setShowNewTemplate(true)} className="cursor-pointer text-xs rounded-lg">
+                        <Plus className="h-3 w-3 mr-1" /> Create Custom
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                      {DEFAULT_TEMPLATES.map((tpl, i) => (
+                        <motion.div
+                          key={tpl.id}
                           initial={{ opacity: 0, y: 16 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.4, delay: i * 0.06 }}
+                          transition={{ delay: i * 0.05 }}
                         >
-                          <Card className="rounded-2xl border-border/50 card-lift">
+                          <Card
+                            className="rounded-xl border-border/50 cursor-pointer hover:border-orange-300/50 transition-all card-lift h-full"
+                            onClick={() => applyTemplate(tpl)}
+                          >
                             <CardContent className="p-5">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-                                  <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
-                                    #{i + 1}
-                                  </span>
-                                  {platformIcon(post.platform, 'h-3.5 w-3.5')}
-                                  <span className="text-[10px] text-muted-foreground">
-                                    {PLATFORMS.find((p) => p.id === post.platform)?.name}
-                                  </span>
+                              <div className="text-2xl mb-3">{tpl.icon}</div>
+                              <h4 className="text-sm font-semibold mb-1">{tpl.name}</h4>
+                              <p className="text-xs text-muted-foreground mb-3">{tpl.description}</p>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="text-[10px]">{TONES.find(t => t.id === tpl.tone)?.label || tpl.tone}</Badge>
+                                <span className="text-[10px] text-orange-500 font-medium ml-auto">Click to apply →</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    {/* Custom Templates */}
+                    {customTemplates.length > 0 && (
+                      <>
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                          <PenTool className="h-4 w-4 text-orange-500" />
+                          Your Custom Templates ({customTemplates.length})
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                          {customTemplates.map((tpl) => (
+                            <Card
+                              key={tpl.id}
+                              className="rounded-xl border-border/50 cursor-pointer hover:border-orange-300/50 transition-all"
+                              onClick={() => applyTemplate(tpl)}
+                            >
+                              <CardContent className="p-4 flex items-center justify-between">
+                                <div>
+                                  <h4 className="text-sm font-semibold">{tpl.name}</h4>
+                                  <p className="text-xs text-muted-foreground">{tpl.description}</p>
                                 </div>
-                                <div className="flex gap-1.5 flex-shrink-0">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleCopy(post.id, post.content)}
-                                    className="cursor-pointer h-8 px-2.5"
-                                    title="Copy to clipboard"
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const updated = customTemplates.filter(t => t.id !== tpl.id);
+                                      setCustomTemplates(updated);
+                                      saveCustomTemplates(updated);
+                                      toast.success('Template deleted');
+                                    }}
+                                    className="p-1.5 rounded-lg hover:bg-destructive/10 cursor-pointer text-muted-foreground hover:text-destructive"
                                   >
-                                    {post.copied ? (
-                                      <Check className="h-4 w-4 text-green-500" />
-                                    ) : (
-                                      <Copy className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handlePublishNow(post.id)}
-                                    className="cursor-pointer h-8 px-2.5"
-                                    title="Publish now"
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {/* New Template Modal */}
+                    <AnimatePresence>
+                      {showNewTemplate && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                          onClick={() => setShowNewTemplate(false)}
+                        >
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="w-full max-w-md mx-4"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Card className="rounded-2xl shadow-2xl">
+                              <CardContent className="p-6 space-y-4">
+                                <h3 className="text-sm font-semibold">Create Custom Template</h3>
+                                <input type="text" value={newTplName} onChange={(e) => setNewTplName(e.target.value)} placeholder="Template name" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                                <input type="text" value={newTplDesc} onChange={(e) => setNewTplDesc(e.target.value)} placeholder="Short description" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                                <Textarea value={newTplTopic} onChange={(e) => setNewTplTopic(e.target.value)} placeholder="Default topic/prompt for this template" className="min-h-[80px] resize-none rounded-xl text-sm" />
+                                <select value={newTplTone} onChange={(e) => setNewTplTone(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                                  {TONES.map((t) => (<option key={t.id} value={t.id}>{t.emoji} {t.label}</option>))}
+                                </select>
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => setShowNewTemplate(false)} className="flex-1 cursor-pointer rounded-lg">Cancel</Button>
+                                  <Button size="sm" onClick={saveNewTemplate} className="flex-1 cursor-pointer rounded-lg gradient-brand text-white border-0">Save Template</Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+
+                {/* ====================================================== */}
+                {/*  TAB: AI Images                                          */}
+                {/* ====================================================== */}
+                {activeTab === 'images' && (
+                  <motion.div key="images" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-4xl mx-auto">
+                    <Card className="rounded-2xl border-border/50 mb-6">
+                      <CardContent className="p-6">
+                        <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                          <ImageIcon className="h-5 w-5 text-orange-500" />
+                          AI Image Generator
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-4">Generate stunning images for your social media posts</p>
+                        <div className="flex gap-3">
+                          <Textarea
+                            value={imagePrompt}
+                            onChange={(e) => setImagePrompt(e.target.value)}
+                            placeholder="Describe your image — e.g. 'Minimalist workspace setup with laptop and coffee', 'Abstract gradient background with tech vibe'..."
+                            className="flex-1 min-h-[60px] resize-none rounded-xl text-sm"
+                          />
+                          <Button
+                            onClick={() => handleGenerateImage()}
+                            disabled={isGeneratingImage || imagePrompt.trim().length < 3}
+                            className="gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl self-end"
+                          >
+                            {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {generatedImages.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {generatedImages.map((img) => (
+                          <motion.div
+                            key={img.id}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                          >
+                            <Card className="rounded-xl border-border/50 overflow-hidden">
+                              <div className="relative">
+                                <img src={img.image} alt={img.prompt} className="w-full h-auto" />
+                                <div className="absolute top-2 right-2 flex gap-1">
+                                  <a
+                                    href={img.image}
+                                    download={`postpilot-${Date.now()}.png`}
+                                    className="p-1.5 rounded-lg bg-background/80 backdrop-blur-sm hover:bg-background cursor-pointer transition-colors"
+                                    title="Download"
                                   >
-                                    <Send className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setShowScheduleModal(post.id)}
-                                    className="cursor-pointer h-8 px-2.5"
-                                    title="Schedule for later"
-                                  >
-                                    <CalendarClock className="h-4 w-4" />
-                                  </Button>
+                                    <Download className="h-4 w-4" />
+                                  </a>
                                 </div>
                               </div>
-                              <div className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
-                                {post.content}
+                              <CardContent className="p-3">
+                                <p className="text-xs text-muted-foreground truncate">{img.prompt}</p>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+
+                    {generatedImages.length === 0 && !isGeneratingImage && (
+                      <Card className="rounded-2xl border-border/50">
+                        <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[300px]">
+                          <ImageIcon className="h-8 w-8 text-muted-foreground mb-3" />
+                          <h3 className="text-sm font-semibold mb-1">Generated images will appear here</h3>
+                          <p className="text-xs text-muted-foreground">Describe what you want and AI will create it</p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* ====================================================== */}
+                {/*  TAB: Brand Voices                                       */}
+                {/* ====================================================== */}
+                {activeTab === 'voices' && (
+                  <motion.div key="voices" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-4xl mx-auto">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <AudioLines className="h-5 w-5 text-orange-500" />
+                        Brand Voice Profiles
+                      </h3>
+                      <Button size="sm" variant="outline" onClick={() => setShowNewVoice(true)} className="cursor-pointer text-xs rounded-lg">
+                        <Plus className="h-3 w-3 mr-1" /> Create Voice
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {DEFAULT_BRAND_VOICES.map((voice, i) => (
+                        <motion.div
+                          key={voice.id}
+                          initial={{ opacity: 0, y: 16 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                        >
+                          <Card
+                            className={`rounded-xl border-border/50 cursor-pointer transition-all h-full ${activeVoice === voice.id ? 'border-orange-400 bg-orange-50/50 dark:bg-orange-500/5 ring-2 ring-orange-400/20' : 'hover:border-orange-300/50 card-lift'}`}
+                            onClick={() => setActiveVoice(activeVoice === voice.id ? null : voice.id)}
+                          >
+                            <CardContent className="p-5">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-sm font-semibold">{voice.name}</h4>
+                                {activeVoice === voice.id && <Check className="h-4 w-4 text-orange-500" />}
                               </div>
-                              <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span className="capitalize">{TONES.find((t) => t.id === selectedTone)?.label}</span>
-                                  <span>•</span>
-                                  <span>{post.content.length} chars</span>
-                                  {brandVoice.trim() && (
-                                    <>
-                                      <span>•</span>
-                                      <Mic className="h-3 w-3 text-orange-500" />
-                                      <span className="text-orange-500">Brand Voice</span>
-                                    </>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  {post.scheduled && (
-                                    <Badge className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 border-0">
-                                      <Check className="h-3 w-3 mr-0.5" /> Scheduled
-                                    </Badge>
-                                  )}
-                                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
-                                    AI Generated
-                                  </Badge>
-                                </div>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{voice.description}</p>
+                              <div className="mt-3">
+                                <Badge variant="secondary" className={`text-[10px] ${activeVoice === voice.id ? 'bg-orange-500 text-white' : ''}`}>
+                                  {activeVoice === voice.id ? 'Active' : 'Click to activate'}
+                                </Badge>
                               </div>
                             </CardContent>
                           </Card>
                         </motion.div>
                       ))}
 
-                      {/* Schedule Modal */}
-                      <AnimatePresence>
-                        {showScheduleModal && (
+                      {customVoices.map((voice) => (
+                        <Card
+                          key={voice.id}
+                          className={`rounded-xl border-border/50 cursor-pointer transition-all h-full ${activeVoice === voice.id ? 'border-orange-400 bg-orange-50/50 dark:bg-orange-500/5 ring-2 ring-orange-400/20' : 'hover:border-orange-300/50'}`}
+                          onClick={() => setActiveVoice(activeVoice === voice.id ? null : voice.id)}
+                        >
+                          <CardContent className="p-5">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                                <PenTool className="h-3 w-3 text-orange-500" />
+                                {voice.name}
+                                {activeVoice === voice.id && <Check className="h-4 w-4 text-orange-500" />}
+                              </h4>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const updated = customVoices.filter(v => v.id !== voice.id);
+                                  setCustomVoices(updated);
+                                  saveCustomVoices(updated);
+                                  if (activeVoice === voice.id) setActiveVoice(null);
+                                  toast.success('Voice deleted');
+                                }}
+                                className="p-1 rounded hover:bg-destructive/10 cursor-pointer text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{voice.description}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {/* New Voice Modal */}
+                    <AnimatePresence>
+                      {showNewVoice && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                          onClick={() => setShowNewVoice(false)}
+                        >
                           <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
+                            className="w-full max-w-md mx-4"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <Card className="rounded-2xl border-orange-300 soft-glow">
-                              <CardContent className="p-5">
-                                <div className="flex items-center justify-between mb-4">
-                                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                                    <CalendarClock className="h-4 w-4 text-orange-500" />
-                                    Schedule Post
-                                  </h4>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setShowScheduleModal(null)}
-                                    className="cursor-pointer h-7 w-7 p-0"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
+                            <Card className="rounded-2xl shadow-2xl">
+                              <CardContent className="p-6 space-y-4">
+                                <h3 className="text-sm font-semibold">Create Brand Voice</h3>
+                                <input type="text" value={newVoiceName} onChange={(e) => setNewVoiceName(e.target.value)} placeholder="Voice name (e.g. 'My Brand')" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                                <input type="text" value={newVoiceDesc} onChange={(e) => setNewVoiceDesc(e.target.value)} placeholder="Short description" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                                <Textarea value={newVoicePrompt} onChange={(e) => setNewVoicePrompt(e.target.value)} placeholder="System prompt — describe the writing style, vocabulary, audience, and tone. E.g., 'Write like a friendly but authoritative tech reviewer who uses short sentences and occasional humor...'" className="min-h-[120px] resize-none rounded-xl text-sm" />
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => setShowNewVoice(false)} className="flex-1 cursor-pointer rounded-lg">Cancel</Button>
+                                  <Button size="sm" onClick={saveNewVoice} className="flex-1 cursor-pointer rounded-lg gradient-brand text-white border-0">Save Voice</Button>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date</label>
-                                    <input
-                                      type="date"
-                                      value={scheduleDate}
-                                      onChange={(e) => setScheduleDate(e.target.value)}
-                                      min={new Date().toISOString().split('T')[0]}
-                                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Time</label>
-                                    <input
-                                      type="time"
-                                      value={scheduleTime}
-                                      onChange={(e) => setScheduleTime(e.target.value)}
-                                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                                    />
-                                  </div>
-                                </div>
-                                <Button
-                                  onClick={() => handleSchedule(showScheduleModal)}
-                                  className="mt-4 w-full gradient-brand text-white border-0 cursor-pointer rounded-xl"
-                                  size="sm"
-                                >
-                                  <CalendarClock className="h-4 w-4 mr-1.5" />
-                                  Confirm Schedule
-                                </Button>
                               </CardContent>
                             </Card>
                           </motion.div>
-                        )}
-                      </AnimatePresence>
-
-                      {/* Regenerate */}
-                      <div className="pt-4">
-                        <Button
-                          onClick={handleGenerate}
-                          disabled={isGenerating || (credits !== null && credits <= 0)}
-                          variant="outline"
-                          className="w-full cursor-pointer rounded-xl py-5"
-                        >
-                          <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                          Generate More Posts
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 
           {/* -------------------------------------------------------- */}
-          {/*  ADMIN VIEW — Stats Dashboard                              */}
+          {/*  ADMIN VIEW                                                 */}
           {/* -------------------------------------------------------- */}
           {activeView === 'admin' && (
             <motion.div
@@ -1585,292 +2675,82 @@ function HomeContent() {
               transition={{ duration: 0.3 }}
               className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12"
             >
-              {/* Admin Header */}
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3">
-                    <LayoutDashboard className="h-7 w-7 text-orange-500" />
-                    Admin Dashboard
-                  </h1>
-                  <p className="text-muted-foreground mt-1">
-                    Real-time analytics, generation stats, and system health
-                  </p>
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+                  <p className="text-muted-foreground mt-1">System health, usage stats, and generation history</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setAdminLoading(true);
-                      fetch('/api/admin')
-                        .then((r) => r.json())
-                        .then((data) => setAdminStats(data))
-                        .catch(() => setAdminStats(null))
-                        .finally(() => setAdminLoading(false));
-                    }}
-                    disabled={adminLoading}
-                    className="cursor-pointer"
-                  >
-                    {adminLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
-                    Refresh
+                  <Button variant="outline" size="sm" onClick={() => setActiveView('app')} className="cursor-pointer">
+                    <ArrowLeft className="h-4 w-4 mr-1" /> Back to App
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setActiveView('landing')}
-                    className="cursor-pointer"
-                  >
-                    Back to Home
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setActiveView('landing')} className="cursor-pointer">Home</Button>
                 </div>
               </div>
 
-              {adminLoading && !adminStats ? (
-                <Card className="rounded-2xl border-border/50">
-                  <CardContent className="p-12 flex flex-col items-center justify-center min-h-[400px]">
-                    <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-                    <p className="mt-4 text-sm text-muted-foreground">Loading dashboard...</p>
-                  </CardContent>
-                </Card>
+              {adminLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                </div>
               ) : adminStats ? (
                 <div className="space-y-6">
-                  {/* Top Stats Row */}
+                  {/* Summary cards */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="rounded-2xl border-border/50">
-                      <CardContent className="p-5">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
-                            <Zap className="h-5 w-5 text-orange-500" />
+                    {[
+                      { label: 'Total Generations', value: adminStats.totalGenerations, icon: Activity, color: 'text-orange-500' },
+                      { label: 'Posts Generated', value: adminStats.totalPostsGenerated, icon: FileText, color: 'text-blue-500' },
+                      { label: 'Rate Limits Hit', value: adminStats.rateLimitedRequests, icon: Shield, color: 'text-red-500' },
+                      { label: 'Uptime (hrs)', value: adminStats.uptime, icon: Server, color: 'text-green-500' },
+                    ].map((stat) => (
+                      <Card key={stat.label} className="rounded-2xl border-border/50">
+                        <CardContent className="p-5">
+                          <div className="flex items-center gap-2 mb-2">
+                            <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                            <span className="text-xs text-muted-foreground">{stat.label}</span>
                           </div>
-                          <span className="text-xs font-medium text-muted-foreground">Total Generations</span>
-                        </div>
-                        <p className="text-3xl font-bold">{adminStats.totalGenerations}</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="rounded-2xl border-border/50">
-                      <CardContent className="p-5">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
-                            <MessageSquare className="h-5 w-5 text-orange-500" />
-                          </div>
-                          <span className="text-xs font-medium text-muted-foreground">Posts Generated</span>
-                        </div>
-                        <p className="text-3xl font-bold">{adminStats.totalPostsGenerated}</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="rounded-2xl border-border/50">
-                      <CardContent className="p-5">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
-                            <Shield className="h-5 w-5 text-orange-500" />
-                          </div>
-                          <span className="text-xs font-medium text-muted-foreground">Rate Limited</span>
-                        </div>
-                        <p className="text-3xl font-bold">{adminStats.rateLimitedRequests}</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="rounded-2xl border-border/50">
-                      <CardContent className="p-5">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
-                            <Server className="h-5 w-5 text-orange-500" />
-                          </div>
-                          <span className="text-xs font-medium text-muted-foreground">Server Uptime</span>
-                        </div>
-                        <p className="text-3xl font-bold">
-                          {Math.floor(adminStats.uptime / 3600)}h {Math.floor((adminStats.uptime % 3600) / 60)}m
-                        </p>
-                      </CardContent>
-                    </Card>
+                          <div className="text-2xl font-bold">{stat.value.toLocaleString()}</div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
 
-                  {/* Charts Row */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* By Platform */}
-                    <Card className="rounded-2xl border-border/50">
-                      <CardContent className="p-6">
-                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                          <Globe className="h-4 w-4 text-orange-500" />
-                          Generations by Platform
-                        </h3>
-                        <div className="space-y-3">
-                          {Object.entries(adminStats.generationsByPlatform).length > 0 ? (
-                            Object.entries(adminStats.generationsByPlatform)
-                              .sort(([, a], [, b]) => b - a)
-                              .map(([platform, count]) => {
-                                const maxCount = Math.max(...Object.values(adminStats.generationsByPlatform));
-                                const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                                const pInfo = PLATFORMS.find((p) => p.id === platform);
-                                return (
-                                  <div key={platform} className="space-y-1.5">
-                                    <div className="flex items-center justify-between text-xs">
-                                      <span className="font-medium capitalize flex items-center gap-1.5">
-                                        {pInfo ? <pInfo.icon className="h-3.5 w-3.5" style={{ color: pInfo.color }} /> : null}
-                                        {platform}
-                                      </span>
-                                      <span className="text-muted-foreground">{count} gen{count !== 1 ? 's' : ''}</span>
-                                    </div>
-                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                      <div
-                                        className="h-full gradient-brand rounded-full transition-all duration-500"
-                                        style={{ width: `${pct}%` }}
-                                      />
-                                    </div>
+                  {/* By Platform */}
+                  <Card className="rounded-2xl border-border/50">
+                    <CardContent className="p-6">
+                      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4 text-orange-500" />
+                        Generations by Platform
+                      </h3>
+                      <div className="space-y-3">
+                        {Object.entries(adminStats.generationsByPlatform).length > 0 ? (
+                          Object.entries(adminStats.generationsByPlatform)
+                            .sort(([, a], [, b]) => b - a)
+                            .map(([platform, count]) => {
+                              const pct = Math.round((count / adminStats.totalGenerations) * 100);
+                              return (
+                                <div key={platform} className="flex items-center gap-3">
+                                  <span className="text-xs w-24 text-muted-foreground capitalize">{platform}</span>
+                                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full gradient-brand rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
                                   </div>
-                                );
-                              })
-                          ) : (
-                            <p className="text-xs text-muted-foreground text-center py-8">No generations yet</p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                                  <span className="text-xs font-mono w-8 text-right">{count}</span>
+                                  <span className="text-muted-foreground">{count} gen{count !== 1 ? 's' : ''}</span>
+                                </div>
+                              );
+                            })
+                        ) : (
+                          <p className="text-xs text-muted-foreground text-center py-8">No generations yet</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                    {/* By Tone */}
-                    <Card className="rounded-2xl border-border/50">
-                      <CardContent className="p-6">
-                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                          <Palette className="h-4 w-4 text-orange-500" />
-                          Generations by Tone
-                        </h3>
-                        <div className="space-y-3">
-                          {Object.entries(adminStats.generationsByTone).length > 0 ? (
-                            Object.entries(adminStats.generationsByTone)
-                              .sort(([, a], [, b]) => b - a)
-                              .map(([tone, count]) => {
-                                const maxCount = Math.max(...Object.values(adminStats.generationsByTone));
-                                const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                                const tInfo = TONES.find((t) => t.id === tone);
-                                return (
-                                  <div key={tone} className="space-y-1.5">
-                                    <div className="flex items-center justify-between text-xs">
-                                      <span className="font-medium">
-                                        {tInfo ? `${tInfo.emoji} ${tInfo.label}` : tone}
-                                      </span>
-                                      <span className="text-muted-foreground">{count} gen{count !== 1 ? 's' : ''}</span>
-                                    </div>
-                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                      <div
-                                        className="h-full gradient-brand rounded-full transition-all duration-500"
-                                        style={{ width: `${pct}%` }}
-                                      />
-                                    </div>
-                                  </div>
-                                );
-                              })
-                          ) : (
-                            <p className="text-xs text-muted-foreground text-center py-8">No generations yet</p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* By Mode + Avg Stats */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* By Mode */}
-                    <Card className="rounded-2xl border-border/50">
-                      <CardContent className="p-6">
-                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-orange-500" />
-                          Generation Modes
-                        </h3>
-                        <div className="space-y-3">
-                          {Object.entries(adminStats.generationsByMode).length > 0 ? (
-                            Object.entries(adminStats.generationsByMode)
-                              .sort(([, a], [, b]) => b - a)
-                              .map(([mode, count]) => {
-                                const modeLabels: Record<string, string> = {
-                                  generate: 'Topic Generate',
-                                  repurpose: 'Content Repurpose',
-                                  enhance: 'Prompt Enhance',
-                                };
-                                return (
-                                  <div key={mode} className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
-                                    <span className="text-xs font-medium">{modeLabels[mode] || mode}</span>
-                                    <Badge variant="secondary" className="text-[10px]">{count}</Badge>
-                                  </div>
-                                );
-                              })
-                          ) : (
-                            <p className="text-xs text-muted-foreground text-center py-6">No data yet</p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Quick Stats */}
-                    <Card className="rounded-2xl border-border/50">
-                      <CardContent className="p-6">
-                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                          <TrendingUp className="h-4 w-4 text-orange-500" />
-                          Quick Stats
-                        </h3>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
-                            <span className="text-xs text-muted-foreground">Avg posts per generation</span>
-                            <span className="text-sm font-semibold">
-                              {adminStats.totalGenerations > 0
-                                ? (adminStats.totalPostsGenerated / adminStats.totalGenerations).toFixed(1)
-                                : '0'}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
-                            <span className="text-xs text-muted-foreground">Rate limit hit rate</span>
-                            <span className="text-sm font-semibold">
-                              {adminStats.totalGenerations + adminStats.rateLimitedRequests > 0
-                                ? ((adminStats.rateLimitedRequests / (adminStats.totalGenerations + adminStats.rateLimitedRequests)) * 100).toFixed(1)
-                                : '0'}%
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
-                            <span className="text-xs text-muted-foreground">Most used platform</span>
-                            <span className="text-sm font-semibold capitalize">
-                              {Object.entries(adminStats.generationsByPlatform).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* System Health */}
-                    <Card className="rounded-2xl border-border/50">
-                      <CardContent className="p-6">
-                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                          <Activity className="h-4 w-4 text-orange-500" />
-                          System Health
-                        </h3>
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 py-2 px-3 bg-green-50 rounded-lg">
-                            <div className="h-2 w-2 rounded-full bg-green-500" />
-                            <span className="text-xs font-medium text-green-700">API Server: Online</span>
-                          </div>
-                          <div className="flex items-center gap-2 py-2 px-3 bg-green-50 rounded-lg">
-                            <div className="h-2 w-2 rounded-full bg-green-500" />
-                            <span className="text-xs font-medium text-green-700">AI Engine: Connected</span>
-                          </div>
-                          <div className="flex items-center gap-2 py-2 px-3 bg-green-50 rounded-lg">
-                            <div className="h-2 w-2 rounded-full bg-green-500" />
-                            <span className="text-xs font-medium text-green-700">Rate Limiter: Active</span>
-                          </div>
-                          <div className="flex items-center gap-2 py-2 px-3 bg-amber-50 rounded-lg">
-                            <AlertTriangle className="h-3 w-3 text-amber-500" />
-                            <span className="text-xs font-medium text-amber-700">No external DB connected</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Recent Generations Table */}
+                  {/* Recent Generations */}
                   <Card className="rounded-2xl border-border/50">
                     <CardContent className="p-6">
                       <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
                         <Clock className="h-4 w-4 text-orange-500" />
                         Recent Generations
-                        <Badge variant="secondary" className="text-[10px] ml-auto">
-                          Last {adminStats.recentGenerations.length} of {adminStats.totalGenerations}
-                        </Badge>
                       </h3>
                       {adminStats.recentGenerations.length > 0 ? (
                         <div className="overflow-x-auto">
@@ -1881,18 +2761,13 @@ function HomeContent() {
                                 <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Platform</th>
                                 <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Tone</th>
                                 <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Mode</th>
-                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Requested</th>
-                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Delivered</th>
                                 <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Topic</th>
-                                <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">IP</th>
                               </tr>
                             </thead>
                             <tbody>
                               {adminStats.recentGenerations.map((gen) => (
                                 <tr key={gen.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
-                                  <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
-                                    {new Date(gen.timestamp).toLocaleTimeString()}
-                                  </td>
+                                  <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{new Date(gen.timestamp).toLocaleTimeString()}</td>
                                   <td className="py-2.5 px-3 capitalize flex items-center gap-1.5">
                                     {(() => {
                                       const pInfo = PLATFORMS.find((p) => p.id === gen.platform);
@@ -1902,25 +2777,12 @@ function HomeContent() {
                                           <span className="hidden sm:inline">{pInfo.name}</span>
                                           <span className="sm:hidden">{gen.platform}</span>
                                         </>
-                                      ) : (
-                                        <span>{gen.platform}</span>
-                                      );
+                                      ) : <span>{gen.platform}</span>;
                                     })()}
                                   </td>
-                                  <td className="py-2.5 px-3 capitalize">
-                                    {TONES.find((t) => t.id === gen.tone)?.label || gen.tone}
-                                  </td>
-                                  <td className="py-2.5 px-3">
-                                    <Badge variant="secondary" className="text-[10px]">
-                                      {gen.mode === 'repurpose' ? 'Repurpose' : gen.mode === 'enhance' ? 'Enhance' : 'Generate'}
-                                    </Badge>
-                                  </td>
-                                  <td className="py-2.5 px-3 font-mono">{gen.count}</td>
-                                  <td className="py-2.5 px-3 font-mono font-semibold">{gen.postsGenerated}</td>
-                                  <td className="py-2.5 px-3 max-w-[200px] truncate text-muted-foreground" title={gen.topic}>
-                                    {gen.topic}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-muted-foreground font-mono">{gen.ip}</td>
+                                  <td className="py-2.5 px-3 capitalize">{TONES.find((t) => t.id === gen.tone)?.label || gen.tone}</td>
+                                  <td className="py-2.5 px-3"><Badge variant="secondary" className="text-[10px]">{gen.mode}</Badge></td>
+                                  <td className="py-2.5 px-3 max-w-[200px] truncate text-muted-foreground" title={gen.topic}>{gen.topic}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1928,9 +2790,7 @@ function HomeContent() {
                         </div>
                       ) : (
                         <div className="text-center py-12">
-                          <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
-                            <Activity className="h-8 w-8 text-muted-foreground" />
-                          </div>
+                          <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
                           <h4 className="text-sm font-semibold mb-1">No generations recorded yet</h4>
                           <p className="text-xs text-muted-foreground">Stats will appear here once users start generating content</p>
                         </div>
@@ -1943,21 +2803,11 @@ function HomeContent() {
                   <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[300px]">
                     <AlertTriangle className="h-10 w-10 text-red-500 mb-4" />
                     <h3 className="text-lg font-semibold">Failed to load dashboard</h3>
-                    <p className="text-sm text-muted-foreground mt-2">Could not connect to the admin API. Check the server status and try again.</p>
-                    <Button
-                      variant="outline"
-                      className="mt-4 cursor-pointer"
-                      onClick={() => {
-                        setAdminLoading(true);
-                        fetch('/api/admin')
-                          .then((r) => r.json())
-                          .then((data) => setAdminStats(data))
-                          .catch(() => setAdminStats(null))
-                          .finally(() => setAdminLoading(false));
-                      }}
-                    >
-                      Retry
-                    </Button>
+                    <p className="text-sm text-muted-foreground mt-2">Could not connect to the admin API.</p>
+                    <Button variant="outline" className="mt-4 cursor-pointer" onClick={() => {
+                      setAdminLoading(true);
+                      fetch('/api/admin').then((r) => r.json()).then((data) => setAdminStats(data)).catch(() => setAdminStats(null)).finally(() => setAdminLoading(false));
+                    }}>Retry</Button>
                   </CardContent>
                 </Card>
               )}
@@ -1980,13 +2830,9 @@ function HomeContent() {
               Built with AI. Designed for creators. &copy; 2026 PostPilot.
             </p>
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">
-                Pricing
-              </button>
-              <button onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">
-                Features
-              </button>
-              <span className="text-orange-500 font-medium">v2.1</span>
+              <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">Pricing</button>
+              <button onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-foreground transition-colors cursor-pointer">Features</button>
+              <span className="text-orange-500 font-medium">v3.0</span>
             </div>
           </div>
         </div>
@@ -2017,22 +2863,14 @@ function HomeContent() {
                   {status === 'authenticated' && session?.user ? (
                     /* ---- Logged In View ---- */
                     <div className="text-center">
-                      {/* Close button */}
                       <div className="flex justify-end mb-2">
-                        <button
-                          onClick={() => setShowAuthModal(false)}
-                          className="p-1 rounded-lg hover:bg-muted transition-colors cursor-pointer"
-                        >
+                        <button onClick={() => setShowAuthModal(false)} className="p-1 rounded-lg hover:bg-muted transition-colors cursor-pointer">
                           <X className="h-4 w-4" />
                         </button>
                       </div>
 
                       {session.user.image ? (
-                        <img
-                          src={session.user.image}
-                          alt=""
-                          className="h-16 w-16 rounded-full border-2 border-orange-300 mx-auto mb-4"
-                        />
+                        <img src={session.user.image} alt="" className="h-16 w-16 rounded-full border-2 border-orange-300 mx-auto mb-4" />
                       ) : (
                         <div className="h-16 w-16 rounded-full gradient-brand flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">
                           {session.user.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -2042,7 +2880,6 @@ function HomeContent() {
                       <h2 className="text-lg font-bold">{session.user.name}</h2>
                       <p className="text-sm text-muted-foreground mt-1">{session.user.email}</p>
 
-                      {/* Plan & Credits */}
                       <div className="mt-4 flex items-center justify-center gap-3">
                         <Badge className={
                           (session.user as Record<string, unknown>).plan === 'enterprise' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0' :
@@ -2053,33 +2890,17 @@ function HomeContent() {
                         </Badge>
                         <Badge variant="outline" className="gap-1">
                           <Zap className="h-3 w-3 text-orange-500" />
-                          {credits !== null ? credits : (session.user as Record<string, unknown>).credits || 20} credits
+                          {credits !== null ? String(credits) : String((session.user as Record<string, unknown>).credits || 20)} credits
                         </Badge>
                       </div>
 
                       <div className="mt-6 space-y-3">
-                        <Button
-                          onClick={() => {
-                            setShowAuthModal(false);
-                            setActiveView('app');
-                          }}
-                          className="w-full gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-5"
-                        >
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          Open Generator
+                        <Button onClick={() => { setShowAuthModal(false); setActiveView('app'); }} className="w-full gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-5">
+                          <Sparkles className="h-4 w-4 mr-2" />Open Generator
                         </Button>
-
                         <div className="pt-3 border-t border-border/50">
-                          <Button
-                            variant="ghost"
-                            className="w-full cursor-pointer text-muted-foreground hover:text-red-500"
-                            onClick={() => {
-                              signOut({ callbackUrl: '/' });
-                              setShowAuthModal(false);
-                            }}
-                          >
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Sign Out
+                          <Button variant="ghost" className="w-full cursor-pointer text-muted-foreground hover:text-red-500" onClick={() => { signOut({ callbackUrl: '/' }); setShowAuthModal(false); }}>
+                            <LogOut className="h-4 w-4 mr-2" />Sign Out
                           </Button>
                         </div>
                       </div>
@@ -2087,37 +2908,23 @@ function HomeContent() {
                   ) : (
                     /* ---- Login/Signup View ---- */
                     <div>
-                      {/* Close button */}
                       <div className="flex justify-end mb-2">
-                        <button
-                          onClick={() => setShowAuthModal(false)}
-                          className="p-1 rounded-lg hover:bg-muted transition-colors cursor-pointer"
-                        >
+                        <button onClick={() => setShowAuthModal(false)} className="p-1 rounded-lg hover:bg-muted transition-colors cursor-pointer">
                           <X className="h-4 w-4" />
                         </button>
                       </div>
 
-                      {/* Logo */}
                       <div className="flex justify-center mb-6">
                         <div className="h-14 w-14 rounded-2xl gradient-brand flex items-center justify-center shadow-lg">
                           <PostPilotLogo className="h-8 w-8" />
                         </div>
                       </div>
 
-                      <h2 className="text-xl font-bold text-center">
-                        {showAuthModal === true ? 'Welcome to PostPilot' : 'Sign In'}
-                      </h2>
-                      <p className="text-sm text-muted-foreground text-center mt-1.5">
-                        Create viral social media content in seconds
-                      </p>
+                      <h2 className="text-xl font-bold text-center">Welcome to PostPilot</h2>
+                      <p className="text-sm text-muted-foreground text-center mt-1.5">Create viral social media content in seconds</p>
 
-                      {/* Google Sign In */}
                       <div className="mt-6">
-                        <Button
-                          onClick={() => signIn('google')}
-                          className="w-full h-12 rounded-xl cursor-pointer border border-border bg-background hover:bg-muted text-foreground font-medium text-sm gap-3"
-                          variant="outline"
-                        >
+                        <Button onClick={() => signIn('google')} className="w-full h-12 rounded-xl cursor-pointer border border-border bg-background hover:bg-muted text-foreground font-medium text-sm gap-3" variant="outline">
                           <svg className="h-5 w-5" viewBox="0 0 24 24">
                             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
                             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -2128,33 +2935,21 @@ function HomeContent() {
                         </Button>
                       </div>
 
-                      {/* Divider */}
                       <div className="flex items-center gap-3 mt-6">
                         <div className="flex-1 h-px bg-border" />
                         <span className="text-xs text-muted-foreground">or</span>
                         <div className="flex-1 h-px bg-border" />
                       </div>
 
-                      {/* Demo login */}
                       <div className="mt-6">
-                        <Button
-                          onClick={() => {
-                            setShowAuthModal(false);
-                            setActiveView('app');
-                            toast.success('Welcome! You are using PostPilot as a guest. Sign in with Google to save your preferences.');
-                          }}
-                          className="w-full h-12 rounded-xl cursor-pointer border-0 bg-muted hover:bg-muted/80 text-foreground font-medium text-sm gap-3"
-                        >
-                          <User className="h-5 w-5" />
-                          Continue as Guest
+                        <Button onClick={() => { setShowAuthModal(false); setActiveView('app'); toast.success('Welcome! You are using PostPilot as a guest.'); }} className="w-full h-12 rounded-xl cursor-pointer border-0 bg-muted hover:bg-muted/80 text-foreground font-medium text-sm gap-3">
+                          <User className="h-5 w-5" />Continue as Guest
                         </Button>
                       </div>
 
-                      {/* Terms */}
                       <p className="text-[11px] text-muted-foreground text-center mt-6 leading-relaxed">
                         By continuing, you agree to our{' '}
-                        <span className="underline cursor-pointer">Terms of Service</span>
-                        {' '}and{' '}
+                        <span className="underline cursor-pointer">Terms of Service</span> and{' '}
                         <span className="underline cursor-pointer">Privacy Policy</span>
                       </p>
                     </div>

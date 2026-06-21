@@ -6,7 +6,7 @@ interface GenerateRequest {
   platform: string;
   tone: string;
   count: number;
-  mode?: 'generate' | 'repurpose' | 'enhance';
+  mode?: 'generate' | 'repurpose' | 'enhance' | 'hook' | 'thread' | 'carousel' | 'hashtags';
   brandVoice?: string;
   userId?: string;
 }
@@ -272,6 +272,119 @@ async function generateWithAI(prompt: string): Promise<string> {
   });
 
   return completion.choices[0]?.message?.content || "Unable to generate content. Please try again.";
+}
+
+/* ------------------------------------------------------------------ */
+/*  Specialized prompt builders for new modes                           */
+/* ------------------------------------------------------------------ */
+
+function buildHookPrompt(req: GenerateRequest): string {
+  const toneGuide = TONE_INSTRUCTIONS[req.tone] || TONE_INSTRUCTIONS.casual;
+  return `You are PostPilot, a viral social media content strategist.
+
+Generate exactly 5 viral scroll-stopping hooks about: "${req.topic}"
+
+TONE: ${toneGuide}
+
+Each hook must:
+1. Stop people from scrolling in under 1 second
+2. Use one of these proven patterns: bold claim, contrarian statement, question, "nobody talks about...", "POV:", "The #1 reason", pattern interrupt
+3. Be 15-40 words maximum
+4. Feel native to ${req.platform.toUpperCase()} culture
+5. Trigger curiosity, urgency, or relatability
+6. Each hook must be UNIQUE — no two should use the same pattern
+
+${req.brandVoice ? `BRAND VOICE: ${req.brandVoice}
+` : ''}
+OUTPUT FORMAT:
+Output ONLY the 5 hooks separated by ---POST---
+No numbers. No labels. Just the hooks.`;
+}
+
+function buildThreadPrompt(req: GenerateRequest): string {
+  const toneGuide = TONE_INSTRUCTIONS[req.tone] || TONE_INSTRUCTIONS.casual;
+  return `You are PostPilot, a viral Twitter/X content strategist.
+
+Generate a viral Twitter/X thread about: "${req.topic}"
+
+TONE: ${toneGuide}
+
+The thread must have 5-8 connected tweets that tell a compelling story or share a step-by-step guide:
+1. TWEET 1 (Hook): A bold, scroll-stopping opening tweet that teases the entire thread. Must make people want to read the whole thing. Use a provocative question, contrarian statement, or surprising stat.
+2. TWEETS 2-6 (Body): Each tweet delivers ONE key insight, step, or story beat. Keep each tweet tight — 2-3 short lines max. Use line breaks for readability. Each tweet should stand alone but flow into the next.
+3. FINAL TWEET (CTA): Wrap up with a summary, actionable takeaway, and engagement driver ("Follow for more threads like this" or "RT the first tweet if this helped").
+
+RULES:
+- Each tweet MUST be under 280 characters
+- Use thread numbering (1/8, 2/8, etc.) at the END of each tweet
+- No hashtags needed (threads don't need them)
+- Each tweet must flow naturally to the next like a story
+- The hook tweet must be the strongest — it's what gets shared
+
+${req.brandVoice ? `BRAND VOICE: ${req.brandVoice}
+` : ''}
+OUTPUT FORMAT:
+Output ONLY the tweets separated by ---POST---
+No labels. No titles. Just the tweets starting with 1/N at the end.`;
+}
+
+function buildCarouselPrompt(req: GenerateRequest): string {
+  const toneGuide = TONE_INSTRUCTIONS[req.tone] || TONE_INSTRUCTIONS.casual;
+  return `You are PostPilot, a viral Instagram content strategist.
+
+Generate an Instagram carousel post about: "${req.topic}"
+
+TONE: ${toneGuide}
+
+The carousel must have 5-8 slides:
+1. SLIDE 1 (Cover/Hook): Bold, attention-grabbing headline. Short, punchy text that makes people swipe. Think of it as a mini billboard. 1-2 lines max.
+2. SLIDES 2-6 (Content): Each slide delivers ONE key point, tip, or story beat. Keep text minimal — people read carousels for quick insights. Use bullet points or short paragraphs. 2-4 lines per slide.
+3. FINAL SLIDE (CTA): "Save this", "Share this with a friend", "Follow for more" — plus a summary of the key takeaway.
+
+RULES:
+- Each slide text should be short (50-150 words max)
+- Include the slide number label: "Slide 1", "Slide 2", etc. at the START
+- Carousel text should be scannable and visually structured
+- The cover slide must stop thumbs from scrolling
+
+${req.brandVoice ? `BRAND VOICE: ${req.brandVoice}
+` : ''}
+OUTPUT FORMAT:
+Output ONLY the slides separated by ---POST---
+Each slide starts with "Slide N:" followed by the content.`;
+}
+
+function buildHashtagPrompt(req: GenerateRequest): string {
+  const platformName = req.platform.toUpperCase();
+  return `You are a social media hashtag research expert.
+
+Generate 15 highly relevant hashtags for content about: "${req.topic}"
+
+Platform: ${platformName}
+
+Organize the hashtags into 3 categories:
+- Trending: 5 high-volume, trending hashtags (100K+ posts)
+- Niche: 5 specific, targeted hashtags (1K-100K posts, higher engagement rate)
+- Broad: 5 general category hashtags (large audience, good for discovery)
+
+RULES:
+- All hashtags must be relevant to the topic
+- Mix hashtag sizes for optimal reach
+- Use camelCase for readability on all platforms
+- Include platform-specific trending formats (e.g., #LearnOnTikTok, #SmallBusinessTok for TikTok)
+- No spam or banned hashtags
+
+OUTPUT FORMAT:
+Output ONLY the hashtags separated by ---POST---
+Format each group as:
+TRENDING:
+#Hashtag1 #Hashtag2 #Hashtag3 #Hashtag4 #Hashtag5
+
+NICHE:
+#Hashtag6 #Hashtag7 #Hashtag8 #Hashtag9 #Hashtag10
+
+BROAD:
+#Hashtag11 #Hashtag12 #Hashtag13 #Hashtag14 #Hashtag15`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -605,6 +718,37 @@ export async function POST(request: NextRequest) {
         success: true,
         enhanced: enhanced.trim().replace(/^["']|["']$/g, ""),
       });
+    }
+
+    // HOOK MODE — generate viral hooks
+    if (mode === "hook") {
+      const hookPrompt = buildHookPrompt({ topic, platform: platform || "twitter", tone: tone || "casual", count: 5, mode: "hook", brandVoice, userId });
+      const rawContent = await generateWithAI(hookPrompt);
+      const hooks = rawContent.split("---POST---").map((h) => h.trim()).filter((h) => h.length > 10);
+      return NextResponse.json({ success: true, hooks, topic, tone: tone || "casual", generatedAt: new Date().toISOString() });
+    }
+
+    // THREAD MODE — generate Twitter thread
+    if (mode === "thread") {
+      const threadPrompt = buildThreadPrompt({ topic, platform: "twitter", tone: tone || "casual", count: 7, mode: "thread", brandVoice, userId });
+      const rawContent = await generateWithAI(threadPrompt);
+      const tweets = rawContent.split("---POST---").map((t) => t.trim()).filter((t) => t.length > 10);
+      return NextResponse.json({ success: true, tweets, topic, tone: tone || "casual", generatedAt: new Date().toISOString() });
+    }
+
+    // CAROUSEL MODE — generate Instagram carousel
+    if (mode === "carousel") {
+      const carouselPrompt = buildCarouselPrompt({ topic, platform: "instagram", tone: tone || "casual", count: 7, mode: "carousel", brandVoice, userId });
+      const rawContent = await generateWithAI(carouselPrompt);
+      const slides = rawContent.split("---POST---").map((s) => s.trim()).filter((s) => s.length > 10);
+      return NextResponse.json({ success: true, slides, topic, tone: tone || "casual", generatedAt: new Date().toISOString() });
+    }
+
+    // HASHTAGS MODE — generate hashtag suggestions
+    if (mode === "hashtags") {
+      const hashtagPrompt = buildHashtagPrompt({ topic, platform: platform || "instagram", tone: tone || "casual", count: 15, mode: "hashtags", brandVoice, userId });
+      const rawContent = await generateWithAI(hashtagPrompt);
+      return NextResponse.json({ success: true, rawHashtags: rawContent.trim(), topic, platform: platform || "instagram", generatedAt: new Date().toISOString() });
     }
 
     // Credit check for authenticated users

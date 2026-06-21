@@ -1,0 +1,502 @@
+     1→  1250→
+     2→  1251→                      {/* Brand Voice Toggle */}
+     3→  1252→                      <div>
+     4→  1253→                        <button
+     5→  1254→                          onClick={() => setShowBrandVoice(!showBrandVoice)}
+     6→  1255→                          className="flex items-center gap-2 text-sm font-semibold cursor-pointer hover:text-orange-500 transition-colors"
+     7→  1256→                        >
+     8→  1257→                          <Mic className="h-4 w-4 text-orange-500" />
+     9→  1258→                          Brand Voice Training
+    10→  1259→                          <ChevronDown className={`h-4 w-4 transition-transform ${showBrandVoice ? 'rotate-180' : ''}`} />
+    11→  1260→                          <Badge variant="secondary" className="text-[10px] ml-1">Pro</Badge>
+    12→  1261→                        </button>
+    13→  1262→                        <AnimatePresence>
+    14→  1263→                          {showBrandVoice && (
+    15→  1264→                            <motion.div
+    16→  1265→                              initial={{ height: 0, opacity: 0 }}
+    17→  1266→                              animate={{ height: 'auto', opacity: 1 }}
+    18→  1267→                              exit={{ height: 0, opacity: 0 }}
+    19→  1268→                              className="overflow-hidden"
+    20→  1269→                            >
+    21→  1270→                              <div className="mt-3">
+    22→  1271→                                <Textarea
+    23→  1272→                                  value={brandVoice}
+    24→  1273→                                  onChange={(e) => setBrandVoice(e.target.value)}
+    25→  1274→                                  placeholder="Describe your brand voice or paste examples of your past posts. E.g., 'I write in a casual, witty tone with lots of analogies. I avoid corporate jargon and use short sentences. My audience is startup founders aged 25-40.'"
+    26→  1275→                                  className="min-h-[100px] resize-none rounded-xl text-sm leading-relaxed"
+    27→  1276→                                />
+    28→  1277→                                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+    29→  1278→                                  <Info className="h-3 w-3" />
+    30→  1279→                                  <span>AI will match this voice in every generated post</span>
+    31→  1280→                                </div>
+    32→  1281→                              </div>
+    33→  1282→                            </motion.div>
+    34→  1283→                          )}
+    35→  1284→                        </AnimatePresence>
+    36→  1285→                      </div>
+    37→  1286→
+    38→  1287→                      {/* Post Count */}
+    39→  1288→                      <div>
+    40→  1289→                        <label className="text-sm font-semibold mb-3 block">
+    41→  1290→                          Number of Posts (per platform)
+    42→  1291→                        </label>
+    43→  1292→                        <div className="flex items-center gap-3">
+    44→  1293→                          <input
+    45→  1294→                            type="range"
+    46→  1295→                            min={1}
+    47→  1296→                            max={10}
+    48→  1297→                            value={postCount}
+    49→  1298→                            onChange={(e) => setPostCount(Number(e.target.value))}
+    50→  1299→                            className="flex-1 accent-orange-500"
+    51→  1300→                          />
+    52→  1301→                          <span className="text-sm font-mono font-semibold bg-muted px-3 py-1.5 rounded-lg min-w-[48px] text-center">
+    53→  1302→                            {postCount}
+    54→  1303→                          </span>
+    55→  1304→                        </div>
+    56→  1305→                      </div>
+    57→  1306→                    </CardContent>
+    58→  1307→                  </Card>
+    59→  1308→
+    60→  1309→                  {/* Generate Button */}
+    61→  1310→                  <div className="flex gap-3">
+    62→  1311→                    <Button
+    63→  1312→                      onClick={handleGenerate}
+    64→  1313→                      disabled={isGenerating || (credits !== null && credits <= 0)}
+    65→  1314→                      className="flex-1 gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-6 text-base font-semibold"
+    66→  1315→                      size="lg"
+    67→  1316→                    >
+    68→  1317→                      {isGenerating ? (
+    69→  1318→                        <>
+    70→  1319→                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+    71→  1320→                          Generating...
+    72→  1321→                        </>
+    73→  1322→                      ) : (
+    74→  1323→                        <>
+    75→  1324→                          <Zap className="h-5 w-5 mr-2" />
+    76→  1325→                          Generate {postCount} Post{postCount > 1 ? 's' : ''}
+    77→  1326→                          {selectedPlatforms.length > 1 ? ` x${selectedPlatforms.length} platforms` : ''}
+    78→  1327→                        </>
+    79→  1328→                      )}
+    80→  1329→                    </Button>
+    81→  1330→                    {generatedPosts.length > 0 && (
+    82→  1331→                      <Button
+    83→  1332→                        variant="outline"
+    84→  1333→                        onClick={handleClear}
+    85→  1334→                        className="rounded-xl px-4 cursor-pointer"
+    86→  1335→                        size="lg"
+    87→  1336→                      >
+    88→  1337→                        <RefreshCw className="h-4 w-4" />
+    89→  1338→                      </Button>
+    90→  1339→                    )}
+    91→  1340→                  </div>
+    92→  1341→
+    93→  1342→                  {credits !== null && credits <= 0 && (
+    94→  1343→                    <Card className="rounded-2xl border-orange-300 bg-orange-50/50">
+    95→  1344→                      <CardContent className="p-4 flex items-center gap-3">
+    96→  1345→                        <Zap className="h-5 w-5 text-orange-500 flex-shrink-0" />
+    97→  1346→                        <div>
+    98→  1347→                          <p className="text-sm font-semibold text-orange-700">No credits remaining</p>
+    99→  1348→                          <p className="text-xs text-orange-600/70">Upgrade to Pro for 500 credits/month</p>
+   100→  1349→                        </div>
+   101→  1350→                        <Button size="sm" className="ml-auto gradient-brand text-white border-0 cursor-pointer text-xs">
+   102→  1351→                          Upgrade
+   103→  1352→                        </Button>
+   104→  1353→                      </CardContent>
+   105→  1354→                    </Card>
+   106→  1355→                  )}
+   107→  1356→                </div>
+   108→  1357→
+   109→  1358→                {/* RIGHT: Results */}
+   110→  1359→                <div ref={resultsRef}>
+   111→  1360→                  {generatedPosts.length === 0 && !isGenerating ? (
+   112→  1361→                    <Card className="rounded-2xl border-dashed border-2 border-border/50">
+   113→  1362→                      <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
+   114→  1363→                        <div className="h-20 w-20 rounded-2xl bg-muted flex items-center justify-center mb-6">
+   115→  1364→                          <Sparkles className="h-10 w-10 text-muted-foreground" />
+   116→  1365→                        </div>
+   117→  1366→                        <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
+   118→  1367→                        <p className="text-sm text-muted-foreground max-w-sm">
+   119→  1368→                          Enter a topic or paste content to repurpose, choose your platforms and tone, then hit generate. Your AI-crafted posts will appear here with schedule and publish options.
+   120→  1369→                        </p>
+   121→  1370→                        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+   122→  1371→                          <Badge variant="secondary" className="text-[10px]">6 platforms</Badge>
+   123→  1372→                          <Badge variant="secondary" className="text-[10px]">6 tones</Badge>
+   124→  1373→                          <Badge variant="secondary" className="text-[10px]">Brand voice</Badge>
+   125→  1374→                          <Badge variant="secondary" className="text-[10px]">Schedule</Badge>
+   126→  1375→                        </div>
+   127→  1376→                      </CardContent>
+   128→  1377→                    </Card>
+   129→  1378→                  ) : isGenerating ? (
+   130→  1379→                    <Card className="rounded-2xl border-border/50">
+   131→  1380→                      <CardContent className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+   132→  1381→                        <div className="relative">
+   133→  1382→                          <div className="h-16 w-16 rounded-2xl gradient-brand flex items-center justify-center animate-pulse">
+   134→  1383→                            <Zap className="h-8 w-8 text-white" />
+   135→  1384→                          </div>
+   136→  1385→                          <div className="absolute inset-0 rounded-2xl gradient-brand animate-ping opacity-20" />
+   137→  1386→                        </div>
+   138→  1387→                        <h3 className="mt-6 text-lg font-semibold">Creating your posts...</h3>
+   139→  1388→                        <p className="text-sm text-muted-foreground mt-2">
+   140→  1389→                          Generating {postCount} post{postCount > 1 ? 's' : ''} for {selectedPlatforms.length} platform{selectedPlatforms.length > 1 ? 's' : ''}
+   141→  1390→                        </p>
+   142→  1391→                        <div className="mt-6 w-48 h-1.5 bg-muted rounded-full overflow-hidden">
+   143→  1392→                          <div className="h-full gradient-brand rounded-full animate-[shimmer_2s_ease-in-out_infinite]" style={{ width: '60%' }} />
+   144→  1393→                        </div>
+   145→  1394→                      </CardContent>
+   146→  1395→                    </Card>
+   147→  1396→                  ) : (
+   148→  1397→                    <div className="space-y-4">
+   149→  1398→                      <div className="flex items-center justify-between">
+   150→  1399→                        <h3 className="text-sm font-semibold text-muted-foreground">
+   151→  1400→                          Generated Posts
+   152→  1401→                          <Badge variant="secondary" className="ml-2">{generatedPosts.length}</Badge>
+   153→  1402→                        </h3>
+   154→  1403→                        <div className="flex items-center gap-2">
+   155→  1404→                          {selectedPlatforms.length === 1 && (
+   156→  1405→                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   157→  1406→                              {platformIcon(selectedPlatforms[0], 'h-3.5 w-3.5')}
+   158→  1407→                              {PLATFORMS.find((p) => p.id === selectedPlatforms[0])?.name}
+   159→  1408→                            </div>
+   160→  1409→                          )}
+   161→  1410→                        </div>
+   162→  1411→                      </div>
+   163→  1412→
+   164→  1413→                      {generatedPosts.map((post, i) => (
+   165→  1414→                        <motion.div
+   166→  1415→                          key={post.id}
+   167→  1416→                          initial={{ opacity: 0, y: 16 }}
+   168→  1417→                          animate={{ opacity: 1, y: 0 }}
+   169→  1418→                          transition={{ duration: 0.4, delay: i * 0.06 }}
+   170→  1419→                        >
+   171→  1420→                          <Card className="rounded-2xl border-border/50 card-lift">
+   172→  1421→                            <CardContent className="p-5">
+   173→  1422→                              <div className="flex items-start justify-between gap-4">
+   174→  1423→                                <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+   175→  1424→                                  <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
+   176→  1425→                                    #{i + 1}
+   177→  1426→                                  </span>
+   178→  1427→                                  {platformIcon(post.platform, 'h-3.5 w-3.5')}
+   179→  1428→                                  <span className="text-[10px] text-muted-foreground">
+   180→  1429→                                    {PLATFORMS.find((p) => p.id === post.platform)?.name}
+   181→  1430→                                  </span>
+   182→  1431→                                </div>
+   183→  1432→                                <div className="flex gap-1.5 flex-shrink-0">
+   184→  1433→                                  <Button
+   185→  1434→                                    variant="ghost"
+   186→  1435→                                    size="sm"
+   187→  1436→                                    onClick={() => handleCopy(post.id, post.content)}
+   188→  1437→                                    className="cursor-pointer h-8 px-2.5"
+   189→  1438→                                    title="Copy to clipboard"
+   190→  1439→                                  >
+   191→  1440→                                    {post.copied ? (
+   192→  1441→                                      <Check className="h-4 w-4 text-green-500" />
+   193→  1442→                                    ) : (
+   194→  1443→                                      <Copy className="h-4 w-4" />
+   195→  1444→                                    )}
+   196→  1445→                                  </Button>
+   197→  1446→                                  <Button
+   198→  1447→                                    variant="ghost"
+   199→  1448→                                    size="sm"
+   200→  1449→                                    onClick={() => handlePublishNow(post.id)}
+   201→  1450→                                    className="cursor-pointer h-8 px-2.5"
+   202→  1451→                                    title="Publish now"
+   203→  1452→                                  >
+   204→  1453→                                    <Send className="h-4 w-4" />
+   205→  1454→                                  </Button>
+   206→  1455→                                  <Button
+   207→  1456→                                    variant="ghost"
+   208→  1457→                                    size="sm"
+   209→  1458→                                    onClick={() => setShowScheduleModal(post.id)}
+   210→  1459→                                    className="cursor-pointer h-8 px-2.5"
+   211→  1460→                                    title="Schedule for later"
+   212→  1461→                                  >
+   213→  1462→                                    <CalendarClock className="h-4 w-4" />
+   214→  1463→                                  </Button>
+   215→  1464→                                </div>
+   216→  1465→                              </div>
+   217→  1466→                              <div className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
+   218→  1467→                                {post.content}
+   219→  1468→                              </div>
+   220→  1469→                              <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
+   221→  1470→                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   222→  1471→                                  <span className="capitalize">{TONES.find((t) => t.id === selectedTone)?.label}</span>
+   223→  1472→                                  <span>•</span>
+   224→  1473→                                  <span>{post.content.length} chars</span>
+   225→  1474→                                  {brandVoice.trim() && (
+   226→  1475→                                    <>
+   227→  1476→                                      <span>•</span>
+   228→  1477→                                      <Mic className="h-3 w-3 text-orange-500" />
+   229→  1478→                                      <span className="text-orange-500">Brand Voice</span>
+   230→  1479→                                    </>
+   231→  1480→                                  )}
+   232→  1481→                                </div>
+   233→  1482→                                <div className="flex items-center gap-1.5">
+   234→  1483→                                  {post.scheduled && (
+   235→  1484→                                    <Badge className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 border-0">
+   236→  1485→                                      <Check className="h-3 w-3 mr-0.5" /> Scheduled
+   237→  1486→                                    </Badge>
+   238→  1487→                                  )}
+   239→  1488→                                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+   240→  1489→                                    AI Generated
+   241→  1490→                                  </Badge>
+   242→  1491→                                </div>
+   243→  1492→                              </div>
+   244→  1493→                            </CardContent>
+   245→  1494→                          </Card>
+   246→  1495→                        </motion.div>
+   247→  1496→                      ))}
+   248→  1497→
+   249→  1498→                      {/* Schedule Modal */}
+   250→  1499→                      <AnimatePresence>
+   251→  1500→                        {showScheduleModal && (
+   252→  1501→                          <motion.div
+   253→  1502→                            initial={{ opacity: 0, scale: 0.95 }}
+   254→  1503→                            animate={{ opacity: 1, scale: 1 }}
+   255→  1504→                            exit={{ opacity: 0, scale: 0.95 }}
+   256→  1505→                          >
+   257→  1506→                            <Card className="rounded-2xl border-orange-300 soft-glow">
+   258→  1507→                              <CardContent className="p-5">
+   259→  1508→                                <div className="flex items-center justify-between mb-4">
+   260→  1509→                                  <h4 className="text-sm font-semibold flex items-center gap-2">
+   261→  1510→                                    <CalendarClock className="h-4 w-4 text-orange-500" />
+   262→  1511→                                    Schedule Post
+   263→  1512→                                  </h4>
+   264→  1513→                                  <Button
+   265→  1514→                                    variant="ghost"
+   266→  1515→                                    size="sm"
+   267→  1516→                                    onClick={() => setShowScheduleModal(null)}
+   268→  1517→                                    className="cursor-pointer h-7 w-7 p-0"
+   269→  1518→                                  >
+   270→  1519→                                    <X className="h-4 w-4" />
+   271→  1520→                                  </Button>
+   272→  1521→                                </div>
+   273→  1522→                                <div className="grid grid-cols-2 gap-3">
+   274→  1523→                                  <div>
+   275→  1524→                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date</label>
+   276→  1525→                                    <input
+   277→  1526→                                      type="date"
+   278→  1527→                                      value={scheduleDate}
+   279→  1528→                                      onChange={(e) => setScheduleDate(e.target.value)}
+   280→  1529→                                      min={new Date().toISOString().split('T')[0]}
+   281→  1530→                                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+   282→  1531→                                    />
+   283→  1532→                                  </div>
+   284→  1533→                                  <div>
+   285→  1534→                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Time</label>
+   286→  1535→                                    <input
+   287→  1536→                                      type="time"
+   288→  1537→                                      value={scheduleTime}
+   289→  1538→                                      onChange={(e) => setScheduleTime(e.target.value)}
+   290→  1539→                                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+   291→  1540→                                    />
+   292→  1541→                                  </div>
+   293→  1542→                                </div>
+   294→  1543→                                <Button
+   295→  1544→                                  onClick={() => handleSchedule(showScheduleModal)}
+   296→  1545→                                  className="mt-4 w-full gradient-brand text-white border-0 cursor-pointer rounded-xl"
+   297→  1546→                                  size="sm"
+   298→  1547→                                >
+   299→  1548→                                  <CalendarClock className="h-4 w-4 mr-1.5" />
+   300→  1549→                                  Confirm Schedule
+   301→  1550→                                </Button>
+   302→  1551→                              </CardContent>
+   303→  1552→                            </Card>
+   304→  1553→                          </motion.div>
+   305→  1554→                        )}
+   306→  1555→                      </AnimatePresence>
+   307→  1556→
+   308→  1557→                      {/* Regenerate */}
+   309→  1558→                      <div className="pt-4">
+   310→  1559→                        <Button
+   311→  1560→                          onClick={handleGenerate}
+   312→  1561→                          disabled={isGenerating || (credits !== null && credits <= 0)}
+   313→  1562→                          variant="outline"
+   314→  1563→                          className="w-full cursor-pointer rounded-xl py-5"
+   315→  1564→                        >
+   316→  1565→                          <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+   317→  1566→                          Generate More Posts
+   318→  1567→                        </Button>
+   319→  1568→                      </div>
+   320→  1569→                    </div>
+   321→  1570→                  )}
+   322→  1571→                </div>
+   323→  1572→              </div>
+   324→  1573→            </motion.div>
+   325→  1574→          )}
+   326→  1575→
+   327→  1576→          {/* -------------------------------------------------------- */}
+   328→  1577→          {/*  ADMIN VIEW — Stats Dashboard                              */}
+   329→  1578→          {/* -------------------------------------------------------- */}
+   330→  1579→          {activeView === 'admin' && (
+   331→  1580→            <motion.div
+   332→  1581→              key="admin"
+   333→  1582→              initial={{ opacity: 0 }}
+   334→  1583→              animate={{ opacity: 1 }}
+   335→  1584→              exit={{ opacity: 0 }}
+   336→  1585→              transition={{ duration: 0.3 }}
+   337→  1586→              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12"
+   338→  1587→            >
+   339→  1588→              {/* Admin Header */}
+   340→  1589→              <div className="flex items-center justify-between mb-8">
+   341→  1590→                <div>
+   342→  1591→                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3">
+   343→  1592→                    <LayoutDashboard className="h-7 w-7 text-orange-500" />
+   344→  1593→                    Admin Dashboard
+   345→  1594→                  </h1>
+   346→  1595→                  <p className="text-muted-foreground mt-1">
+   347→  1596→                    Real-time analytics, generation stats, and system health
+   348→  1597→                  </p>
+   349→  1598→                </div>
+   350→  1599→                <div className="flex items-center gap-3">
+   351→  1600→                  <Button
+   352→  1601→                    variant="outline"
+   353→  1602→                    size="sm"
+   354→  1603→                    onClick={() => {
+   355→  1604→                      setAdminLoading(true);
+   356→  1605→                      fetch('/api/admin')
+   357→  1606→                        .then((r) => r.json())
+   358→  1607→                        .then((data) => setAdminStats(data))
+   359→  1608→                        .catch(() => setAdminStats(null))
+   360→  1609→                        .finally(() => setAdminLoading(false));
+   361→  1610→                    }}
+   362→  1611→                    disabled={adminLoading}
+   363→  1612→                    className="cursor-pointer"
+   364→  1613→                  >
+   365→  1614→                    {adminLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+   366→  1615→                    Refresh
+   367→  1616→                  </Button>
+   368→  1617→                  <Button
+   369→  1618→                    variant="outline"
+   370→  1619→                    size="sm"
+   371→  1620→                    onClick={() => setActiveView('landing')}
+   372→  1621→                    className="cursor-pointer"
+   373→  1622→                  >
+   374→  1623→                    Back to Home
+   375→  1624→                  </Button>
+   376→  1625→                </div>
+   377→  1626→              </div>
+   378→  1627→
+   379→  1628→              {adminLoading && !adminStats ? (
+   380→  1629→                <Card className="rounded-2xl border-border/50">
+   381→  1630→                  <CardContent className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+   382→  1631→                    <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+   383→  1632→                    <p className="mt-4 text-sm text-muted-foreground">Loading dashboard...</p>
+   384→  1633→                  </CardContent>
+   385→  1634→                </Card>
+   386→  1635→              ) : adminStats ? (
+   387→  1636→                <div className="space-y-6">
+   388→  1637→                  {/* Top Stats Row */}
+   389→  1638→                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   390→  1639→                    <Card className="rounded-2xl border-border/50">
+   391→  1640→                      <CardContent className="p-5">
+   392→  1641→                        <div className="flex items-center gap-3 mb-3">
+   393→  1642→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+   394→  1643→                            <Zap className="h-5 w-5 text-orange-500" />
+   395→  1644→                          </div>
+   396→  1645→                          <span className="text-xs font-medium text-muted-foreground">Total Generations</span>
+   397→  1646→                        </div>
+   398→  1647→                        <p className="text-3xl font-bold">{adminStats.totalGenerations}</p>
+   399→  1648→                      </CardContent>
+   400→  1649→                    </Card>
+   401→  1650→                    <Card className="rounded-2xl border-border/50">
+   402→  1651→                      <CardContent className="p-5">
+   403→  1652→                        <div className="flex items-center gap-3 mb-3">
+   404→  1653→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+   405→  1654→                            <MessageSquare className="h-5 w-5 text-orange-500" />
+   406→  1655→                          </div>
+   407→  1656→                          <span className="text-xs font-medium text-muted-foreground">Posts Generated</span>
+   408→  1657→                        </div>
+   409→  1658→                        <p className="text-3xl font-bold">{adminStats.totalPostsGenerated}</p>
+   410→  1659→                      </CardContent>
+   411→  1660→                    </Card>
+   412→  1661→                    <Card className="rounded-2xl border-border/50">
+   413→  1662→                      <CardContent className="p-5">
+   414→  1663→                        <div className="flex items-center gap-3 mb-3">
+   415→  1664→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+   416→  1665→                            <Shield className="h-5 w-5 text-orange-500" />
+   417→  1666→                          </div>
+   418→  1667→                          <span className="text-xs font-medium text-muted-foreground">Rate Limited</span>
+   419→  1668→                        </div>
+   420→  1669→                        <p className="text-3xl font-bold">{adminStats.rateLimitedRequests}</p>
+   421→  1670→                      </CardContent>
+   422→  1671→                    </Card>
+   423→  1672→                    <Card className="rounded-2xl border-border/50">
+   424→  1673→                      <CardContent className="p-5">
+   425→  1674→                        <div className="flex items-center gap-3 mb-3">
+   426→  1675→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+   427→  1676→                            <Server className="h-5 w-5 text-orange-500" />
+   428→  1677→                          </div>
+   429→  1678→                          <span className="text-xs font-medium text-muted-foreground">Server Uptime</span>
+   430→  1679→                        </div>
+   431→  1680→                        <p className="text-3xl font-bold">
+   432→  1681→                          {Math.floor(adminStats.uptime / 3600)}h {Math.floor((adminStats.uptime % 3600) / 60)}m
+   433→  1682→                        </p>
+   434→  1683→                      </CardContent>
+   435→  1684→                    </Card>
+   436→  1685→                  </div>
+   437→  1686→
+   438→  1687→                  {/* Charts Row */}
+   439→  1688→                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   440→  1689→                    {/* By Platform */}
+   441→  1690→                    <Card className="rounded-2xl border-border/50">
+   442→  1691→                      <CardContent className="p-6">
+   443→  1692→                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+   444→  1693→                          <Globe className="h-4 w-4 text-orange-500" />
+   445→  1694→                          Generations by Platform
+   446→  1695→                        </h3>
+   447→  1696→                        <div className="space-y-3">
+   448→  1697→                          {Object.entries(adminStats.generationsByPlatform).length > 0 ? (
+   449→  1698→                            Object.entries(adminStats.generationsByPlatform)
+   450→  1699→                              .sort(([, a], [, b]) => b - a)
+   451→  1700→                              .map(([platform, count]) => {
+   452→  1701→                                const maxCount = Math.max(...Object.values(adminStats.generationsByPlatform));
+   453→  1702→                                const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+   454→  1703→                                const pInfo = PLATFORMS.find((p) => p.id === platform);
+   455→  1704→                                return (
+   456→  1705→                                  <div key={platform} className="space-y-1.5">
+   457→  1706→                                    <div className="flex items-center justify-between text-xs">
+   458→  1707→                                      <span className="font-medium capitalize flex items-center gap-1.5">
+   459→  1708→                                        {pInfo ? <pInfo.icon className="h-3.5 w-3.5" style={{ color: pInfo.color }} /> : null}
+   460→  1709→                                        {platform}
+   461→  1710→                                      </span>
+   462→  1711→                                      <span className="text-muted-foreground">{count} gen{count !== 1 ? 's' : ''}</span>
+   463→  1712→                                    </div>
+   464→  1713→                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+   465→  1714→                                      <div
+   466→  1715→                                        className="h-full gradient-brand rounded-full transition-all duration-500"
+   467→  1716→                                        style={{ width: `${pct}%` }}
+   468→  1717→                                      />
+   469→  1718→                                    </div>
+   470→  1719→                                  </div>
+   471→  1720→                                );
+   472→  1721→                              })
+   473→  1722→                          ) : (
+   474→  1723→                            <p className="text-xs text-muted-foreground text-center py-8">No generations yet</p>
+   475→  1724→                          )}
+   476→  1725→                        </div>
+   477→  1726→                      </CardContent>
+   478→  1727→                    </Card>
+   479→  1728→
+   480→  1729→                    {/* By Tone */}
+   481→  1730→                    <Card className="rounded-2xl border-border/50">
+   482→  1731→                      <CardContent className="p-6">
+   483→  1732→                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+   484→  1733→                          <Palette className="h-4 w-4 text-orange-500" />
+   485→  1734→                          Generations by Tone
+   486→  1735→                        </h3>
+   487→  1736→                        <div className="space-y-3">
+   488→  1737→                          {Object.entries(adminStats.generationsByTone).length > 0 ? (
+   489→  1738→                            Object.entries(adminStats.generationsByTone)
+   490→  1739→                              .sort(([, a], [, b]) => b - a)
+   491→  1740→                              .map(([tone, count]) => {
+   492→  1741→                                const maxCount = Math.max(...Object.values(adminStats.generationsByTone));
+   493→  1742→                                const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+   494→  1743→                                const tInfo = TONES.find((t) => t.id === tone);
+   495→  1744→                                return (
+   496→  1745→                                  <div key={tone} className="space-y-1.5">
+   497→  1746→                                    <div className="flex items-center justify-between text-xs">
+   498→  1747→                                      <span className="font-medium">
+   499→  1748→                                        {tInfo ? `${tInfo.emoji} ${tInfo.label}` : tone}
+   500→  1749→                                      </span>
+   501→
+   502→[showing lines 1250-1749 of 2179; use offset=1750 with limit to continue reading]

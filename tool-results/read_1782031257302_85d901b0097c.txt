@@ -1,0 +1,692 @@
+     1→     1→import { NextRequest, NextResponse } from "next/server";
+     2→     2→import { db } from "@/lib/db";
+     3→     3→
+     4→     4→interface GenerateRequest {
+     5→     5→  topic: string;
+     6→     6→  platform: string;
+     7→     7→  tone: string;
+     8→     8→  count: number;
+     9→     9→  mode?: 'generate' | 'repurpose' | 'enhance';
+    10→    10→  brandVoice?: string;
+    11→    11→  userId?: string;
+    12→    12→}
+    13→    13→
+    14→    14→/* ------------------------------------------------------------------ */
+    15→    15→/*  Platform-specific deep instructions                                */
+    16→    16→/* ------------------------------------------------------------------ */
+    17→    17→
+    18→    18→interface PlatformProfile {
+    19→    19→  maxChars: number;
+    20→    20→  contentType: string;
+    21→    21→  structureRules: string;
+    22→    22→  hashtagRule: string;
+    23→    23→  formatExample: string;
+    24→    24→  forbiddenPatterns: string[];
+    25→    25→}
+    26→    26→
+    27→    27→const PLATFORM_PROFILES: Record<string, PlatformProfile> = {
+    28→    28→  twitter: {
+    29→    29→    maxChars: 280,
+    30→    30→    contentType: "single standalone tweet",
+    31→    31→    structureRules: `MUST be a single complete tweet under 280 characters.
+    32→    32→- Open with a bold hook or hot take in the first line
+    33→    33→- Use 1-3 short lines max (separated by single line breaks, NOT paragraphs)
+    34→    34→- End with an engagement driver (a question, a bold claim, or "Thread 🧵" tease)
+    35→    35→- NEVER write multiple tweets in one output — each output is ONE tweet only`,
+    36→    36→    hashtagRule: "Include 1-3 hashtags woven naturally into the text or at the very end. Do NOT put hashtags on separate lines.",
+    37→    37→    formatExample: `EXAMPLE of a perfect tweet:
+    38→    38→"Most people think remote work means less productivity.
+    39→    39→The data says the opposite.
+    40→    40→Companies with remote teams see 22% higher output.
+    41→    41→The secret? Async communication + clear ownership.
+    42→    42→What's your experience with remote work? #RemoteWork"`,
+    43→    43→    forbiddenPatterns: [
+    44→    44→      "Multiple tweets or a thread in one output",
+    45→    45→      "Numbered lists (1. 2. 3.) — tweets don't have room for lists",
+    46→    46→      "Long paragraphs — keep it tight and punchy",
+    47→    47→      "More than 280 characters total",
+    48→    48→      "Starting with quotes or citations",
+    49→    49→    ],
+    50→    50→  },
+    51→    51→  linkedin: {
+    52→    52→    maxChars: 3000,
+    53→    53→    contentType: "long-form LinkedIn post",
+    54→    54→    structureRules: `MUST be a professional LinkedIn post with strong storytelling structure.
+    55→    55→- Open with a contrarian hook, surprising stat, or personal anecdote (1-2 lines)
+    56→    56→- Leave a blank line after the hook for the "see more" bait
+    57→    57→- Write in short 1-2 sentence paragraphs with generous line breaks
+    58→    58→- Use a numbered list or bullet points for key takeaways (3-5 items)
+    59→    59→- Each point should have a bold insight + supporting detail
+    60→    60→- Close with an actionable takeaway and an engagement question
+    61→    61→- Total length: 100-250 words for optimal LinkedIn engagement`,
+    62→    62→    hashtagRule: "Include 3-5 relevant hashtags at the very bottom, separated by spaces (LinkedIn style, not commas).",
+    63→    63→    formatExample: `EXAMPLE of a perfect LinkedIn post:
+    64→    64→"I spent 10 years in corporate before I realized something uncomfortable:
+    65→    65→
+    66→    66→The hardest workers aren't the ones who get promoted.
+    67→    67→
+    68→    68→It's the ones who make their work VISIBLE.
+    69→    69→
+    70→    70→Here are 5 habits that changed my career trajectory:
+    71→    71→
+    72→    72→1. I started documenting small wins weekly
+    73→    73→Most people forget their achievements. I started a "brag folder" — screenshots of positive feedback, completed projects, metrics improved. Review it before every performance review.
+    74→    74→
+    75→    75→2. I began framing problems before presenting solutions
+    76→    76→Instead of saying "here's what I did," I say "here's the challenge we faced, why it mattered, and what I did about it." Context transforms effort into impact.
+    77→    77→
+    78→    78→3. I built relationships UP, not just across
+    79→    79→A mentor once told me: "Your boss's boss knows your name, or you're invisible." I started sharing brief monthly updates with skip-level leaders.
+    80→    80→
+    81→    81→4. I learned to speak in outcomes, not activities
+    82→    82→"I organized a team meeting" → weak
+    83→    83→"I aligned 3 departments around a shared timeline, cutting launch delays by 40%" → strong
+    84→    84→
+    85→    85→5. I made my expertise public
+    86→    86→I started sharing industry insights here on LinkedIn. Within 6 months, 3 inbound opportunities came directly from my posts — zero cold applications needed.
+    87→    87→
+    88→    88→The difference between working hard and working smart isn't about effort.
+    89→    89→
+    90→    90→It's about visibility.
+    91→    91→
+    92→    92→What's one habit that helped you get noticed at work?
+    93→    93→
+    94→    94→#CareerGrowth #ProfessionalDevelopment #Leadership #CareerAdvice #WorkSmarter"`,
+    95→    95→    forbiddenPatterns: [
+    96→    96→      "More than 3000 characters",
+    97→    97→      "Long dense paragraphs without line breaks",
+    98→    98→      "Generic motivational fluff without data or stories",
+    99→    99→      "Hashtags mixed into the body text",
+   100→   100→    ],
+   101→   101→  },
+   102→   102→  instagram: {
+   103→   103→    maxChars: 2200,
+   104→   104→    contentType: "Instagram photo/video caption",
+   105→   105→    structureRules: `MUST be an Instagram caption optimized for engagement and discoverability.
+   106→   106→- First line: a scroll-stopping hook or question (this is what shows before "...more")
+   107→   107→- After the hook, write 2-3 short paragraphs with line breaks
+   108→   108→- Use a storytelling arc: hook → value/context → key insight → CTA
+   109→   109→- Include a clear call-to-action: "Save this for later", "Share with someone who needs this", "Drop a comment below", or "Link in bio"
+   110→   110→- End with a clean line break before hashtags
+   111→   111→- Tone should feel personal and authentic — like talking to a friend
+   112→   112→- Use line breaks liberally for readability on mobile`,
+   113→   113→    hashtagRule: "Include 15-25 relevant hashtags at the very end on a new line, starting with #. Mix trending broad hashtags with niche-specific ones.",
+   114→   114→    formatExample: `EXAMPLE of a perfect Instagram caption:
+   115→   115→"You're not overthinking your career — you're underthinking your strategy.
+   116→   116→
+   117→   117→Most people spend 80% of their energy DOING work and 20% THINKING about which work matters.
+   118→   118→
+   119→   119→Flip that ratio and watch what happens.
+   120→   120→
+   121→   121→When I started spending just 30 minutes every Monday planning my week strategically instead of reactively, everything changed:
+   122→   122→✓ My income went up 40% in 6 months
+   123→   123→✓ I dropped from 60-hour weeks to 35
+   124→   124→✓ I finally had energy for things I actually enjoy
+   125→   125→
+   126→   126→The secret wasn't working harder. It was asking myself one question every morning:
+   127→   127→
+   128→   128→"If I can only accomplish ONE thing today that moves the needle, what is it?"
+   129→   129→
+   130→   130→Then doing THAT first. Everything else is secondary.
+   131→   131→
+   132→   132→Save this post and try it this Monday. Thank me later.
+   133→   133→
+   134→   134→What's the ONE thing you're focusing on this week? Drop it below 👇
+   135→   135→
+   136→   136→#CareerStrategy #MindsetShift #ProductivityTips #WorkSmarterNotHarder #CareerGrowth #GoalSetting #PersonalDevelopment #SuccessMindset #ProfessionalGrowth #MindsetMatters #EntrepreneurLife #BusinessMindset #HustleSmart #RemoteWorkLife #DigitalEntrepreneur"`,
+   137→   137→    forbiddenPatterns: [
+   138→   138→      "More than 2200 characters",
+   139→   139→      "Starting directly with hashtags (hook must come first)",
+   140→   140→      "Long unbroken paragraphs",
+   141→   141→      "Generic captions that could apply to any topic",
+   142→   142→      "Fewer than 10 hashtags for Instagram",
+   143→   143→    ],
+   144→   144→  },
+   145→   145→  tiktok: {
+   146→   146→    maxChars: 150,
+   147→   147→    contentType: "TikTok video hook/caption",
+   148→   148→    structureRules: `MUST be an ultra-short TikTok hook that goes in the on-screen text overlay OR caption.
+   149→   149→- Maximum 150 characters — BRIEF is everything
+   150→   150→- Must create instant curiosity, urgency, or relatability
+   151→   151→- Use pattern interrupts: "Nobody talks about this but...", "POV:", "Stop scrolling if...", "The #1 mistake..."
+   152→   152→- Each output is ONE short hook/caption only — NOT a script
+   153→   153→- Could also be a bold statement, provocative question, or challenge hook
+   154→   154→- Feel free to use emojis — they work great on TikTok`,
+   155→   155→    hashtagRule: "Include 3-5 trending TikTok hashtags at the end. Use camelCase for readability: #SideHustleTok #LearnOnTikTok",
+   156→   156→    formatExample: `EXAMPLES of perfect TikTok hooks:
+   157→   157→"Nobody talks about this $5K/month side hustle 🤫 #SideHustleTok #MakeMoneyOnline"
+   158→   158→
+   159→   159→"POV: you finally stopped trading time for money 💸 #EntrepreneurTok #FinancialFreedom"
+   160→   160→
+   161→   161→"3 remote jobs that pay more than your office job 📱 #RemoteWork #CareerTok #JobSearch"`,
+   162→   162→    forbiddenPatterns: [
+   163→   163→      "More than 150 characters total (including hashtags)",
+   164→   164→      "Long sentences or paragraphs",
+   165→   165→      "Numbered lists or structured content",
+   166→   166→      "Multiple hooks mashed together in one output",
+   167→   167→      "Being generic — must feel native to TikTok's fast-paced culture",
+   168→   168→    ],
+   169→   169→  },
+   170→   170→  'youtube-long': {
+   171→   171→    maxChars: 5000,
+   172→   172→    contentType: "YouTube long video description",
+   173→   173→    structureRules: `MUST be a complete YouTube long video description optimized for SEO and click-through.
+   174→   174→- First 1-2 lines: compelling summary with keywords (shows in search results and under the video)
+   175→   175→- After the hook, write a detailed 200-400 word description with:
+   176→   176→  - Overview of what the video covers
+   177→   177→  - Key points or timestamps preview (e.g., "0:00 Introduction", "1:30 Point 1", etc.)
+   178→   178→  - Value proposition — why watching this is worth their time
+   179→   179→  - A personal note or credibility builder
+   180→   180→- End with a strong CTA: subscribe, like, comment, check out linked resources
+   181→   181→- Include 2-3 relevant links formatted as: "🔗 [Link Text](URL)"
+   182→   182→- Professional tone, information-rich, SEO-optimized with natural keyword placement`,
+   183→   183→    hashtagRule: "Include 3-5 hashtags at the very end. YouTube hashtags help with categorization: #HowToMakeMoneyOnline #RemoteWork",
+   184→   184→    formatExample: `EXAMPLE of a perfect YouTube long video description:
+   185→   185→"Discover the 7 proven remote income streams generating $5,000+ monthly from home — backed by real data and case studies.
+   186→   186→
+   187→   187→In this video, I break down the exact strategies that everyday people are using to build sustainable income from their laptops. No get-rich-quick schemes — just proven methods with real numbers.
+   188→   188→
+   189→   189→Timestamps:
+   190→   190→0:00 — Why most "make money online" advice fails
+   191→   191→1:45 — Income Stream #1: Digital Products
+   192→   192→4:30 — Income Stream #2: E-commerce Automation
+   193→   193→7:15 — Income Stream #3: High-Ticket Freelancing
+   194→   194→10:00 — Income Stream #4: Affiliate Marketing
+   195→   195→13:20 — Income Stream #5: Content Monetization
+   196→   196→16:00 — Income Stream #6: Virtual Consulting
+   197→   197→18:30 — Income Stream #7: Automation Services
+   198→   198→21:00 — My recommended starting path for beginners
+   199→   199→
+   200→   200→Resources mentioned in this video:
+   201→   201→🔗 Free Digital Product Starter Guide — [link in description]
+   202→   202→
+   203→   203→I've personally tested each of these methods over the past 3 years and compiled the data into actionable steps you can follow starting this week.
+   204→   204→
+   205→   205→If you found this valuable, hit subscribe and turn on notifications — I post new income breakdowns every week.
+   206→   206→
+   207→   207→Which income stream are you most interested in? Let me know in the comments!
+   208→   208→
+   209→   209→#HowToMakeMoneyOnline #RemoteWork #SideHustle #FinancialFreedom #PassiveIncome"`,
+   210→   210→    forbiddenPatterns: [
+   211→   211→      "More than 5000 characters",
+   212→   212→      "Thin descriptions with no real content",
+   213→   213→      "Missing timestamps or structure",
+   214→   214→      "Keyword stuffing — keywords should feel natural",
+   215→   215→      "No call-to-action at the end",
+   216→   216→    ],
+   217→   217→  },
+   218→   218→  'youtube-shorts': {
+   219→   219→    maxChars: 150,
+   220→   220→    contentType: "YouTube Shorts hook/caption",
+   221→   221→    structureRules: `MUST be an ultra-short YouTube Shorts hook that appears as on-screen text or caption.
+   222→   222→- Maximum 150 characters — punchy and fast, just like TikTok
+   223→   223→- Open with a pattern interrupt: "Nobody talks about...", "POV:", "Stop scrolling if...", "The #1 reason..."
+   224→   224→- Could be a bold claim, provocative question, or challenge
+   225→   225→- Use emojis — they boost engagement on Shorts
+   226→   226→- Each output is ONE short hook only — NOT a script, NOT a description`,
+   227→   227→    hashtagRule: "Include 3-5 relevant hashtags at the end: #Shorts #SideHustle #MoneyTok",
+   228→   228→    formatExample: `EXAMPLES of perfect YouTube Shorts hooks:
+   229→   229→"Nobody talks about this $5K/month side hustle 🤫 #Shorts #MakeMoneyOnline"
+   230→   230→
+   231→   231→"POV: you finally stopped trading time for money 💸 #Shorts #FinancialFreedom"
+   232→   232→
+   233→   233→"3 remote jobs that pay more than your office job 📱 #Shorts #RemoteWork"`,
+   234→   234→    forbiddenPatterns: [
+   235→   235→      "More than 150 characters total (including hashtags)",
+   236→   236→      "Long sentences or paragraphs",
+   237→   237→      "Numbered lists or structured content",
+   238→   238→      "Multiple hooks mashed together in one output",
+   239→   239→    ],
+   240→   240→  },
+   241→   241→};
+   242→   242→
+   243→   243→const TONE_INSTRUCTIONS: Record<string, string> = {
+   244→   244→  professional: "Serious and expert. Use real numbers, facts, and clear insights. Sound like someone who knows their stuff.",
+   245→   245→  casual: "Chill and relaxed. Talk like you're explaining it to a friend over coffee. Use simple words, everyday language.",
+   246→   246→  humorous: "Funny and entertaining. Make people laugh or smile while still delivering value. Light and playful.",
+   247→   247→  inspirational: "Motivating and hype. Make people feel pumped up and ready to take action. Uplifting energy.",
+   248→   248→  provocative: "Bold and controversial. Say what others won't. Challenge the norm, stir debate, take a strong stand.",
+   249→   249→  educational: "Clear and helpful. Break things down step by step so anyone can understand. Teach, don't lecture.",
+   250→   250→};
+   251→   251→
+   252→   252→/* ------------------------------------------------------------------ */
+   253→   253→/*  AI generation                                                      */
+   254→   254→/* ------------------------------------------------------------------ */
+   255→   255→
+   256→   256→async function generateWithAI(prompt: string): Promise<string> {
+   257→   257→  const ZAI = (await import("z-ai-web-dev-sdk")).default;
+   258→   258→  const zai = await ZAI.create();
+   259→   259→
+   260→   260→  const completion = await zai.chat.completions.create({
+   261→   261→    messages: [
+   262→   262→      {
+   263→   263→        role: "assistant",
+   264→   264→        content: `You are PostPilot, the world's best social media content strategist. You have 15 years of experience helping brands go viral. You understand each platform's algorithm, culture, and content format at an expert level. Your content never feels AI-generated — it feels like it was written by a top-tier creator who genuinely lives and breathes that platform. You NEVER violate platform-specific format rules.`,
+   265→   265→      },
+   266→   266→      {
+   267→   267→        role: "user",
+   268→   268→        content: prompt,
+   269→   269→      },
+   270→   270→    ],
+   271→   271→    thinking: { type: "disabled" },
+   272→   272→  });
+   273→   273→
+   274→   274→  return completion.choices[0]?.message?.content || "Unable to generate content. Please try again.";
+   275→   275→}
+   276→   276→
+   277→   277→/* ------------------------------------------------------------------ */
+   278→   278→/*  Prompt builder — now with platform-specific DNA                     */
+   279→   279→/* ------------------------------------------------------------------ */
+   280→   280→
+   281→   281→function buildPrompt(req: GenerateRequest): string {
+   282→   282→  const profile = PLATFORM_PROFILES[req.platform] || PLATFORM_PROFILES.twitter;
+   283→   283→  const toneGuide = TONE_INSTRUCTIONS[req.tone] || TONE_INSTRUCTIONS.casual;
+   284→   284→
+   285→   285→  const brandVoiceSection = req.brandVoice
+   286→   286→    ? `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBRAND VOICE (MATCH THIS STYLE):\n${req.brandVoice}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nEvery post MUST sound like it was written by this brand/person. Match their vocabulary, sentence structure, humor style, and overall energy. Do NOT ignore this section.`
+   287→   287→    : "";
+   288→   288→
+   289→   289→  const repurposeSection = req.mode === 'repurpose'
+   290→   290→    ? `\n\nCONTENT REPURPOSING MODE:\nThe user has provided an existing piece of content (article, transcript, etc.). Your job is to extract the KEY IDEAS, INSIGHTS, and VALUE from this source content and create entirely NEW social media posts from it. Do NOT simply copy or rephrase the original. Extract the core messages and create fresh, engaging posts that stand on their own.\n\nSOURCE CONTENT TO REPURPOSE:\n${req.topic}`
+   291→   291→    : `\nGenerate exactly ${req.count} unique, high-engagement ${profile.contentType}s about: "${req.topic}"`;
+   292→   292→
+   293→   293→  return `${repurposeSection}
+   294→   294→
+   295→   295→━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   296→   296→PLATFORM: ${req.platform.toUpperCase()}
+   297→   297→━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   298→   298→
+   299→   299→TONE: ${toneGuide}
+   300→   300→${brandVoiceSection}
+   301→   301→MAX LENGTH: ${profile.maxChars} characters per post (STRICT — every post MUST be under this limit)
+   302→   302→
+   303→   303→CONTENT STRUCTURE RULES:
+   304→   304→${profile.structureRules}
+   305→   305→
+   306→   306→HASHTAG RULES:
+   307→   307→${profile.hashtagRule}
+   308→   308→
+   309→   309→PERFECT EXAMPLE:
+   310→   310→${profile.formatExample}
+   311→   311→
+   312→   312→FORBIDDEN (will result in bad output):
+   313→   313→${profile.forbiddenPatterns.map((p, i) => `${i + 1}. ${p}`).join("\n")}
+   314→   314→
+   315→   315→━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   316→   316→GENERATION RULES
+   317→   317→━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   318→   318→
+   319→   319→1. Generate exactly ${req.count} separate posts. Each is a COMPLETE, FINISHED piece of content.
+   320→   320→2. Each post MUST have a fundamentally different angle, hook, and structure — no two should feel similar.
+   321→   321→3. Follow the platform format rules ABOVE ALL ELSE. Platform-native or nothing.
+   322→   322→4. Every post must feel human-written — varied sentence lengths, natural word choice, no robotic patterns.
+   323→   323→5. Every post must deliver real value or trigger real emotion — no filler, no generic fluff.
+   324→   324→6. Respect the character limit STRICTLY. Shorter is better than exceeding it.
+   325→   325→
+   326→   326→OUTPUT FORMAT (CRITICAL):
+   327→   327→Output ONLY the posts separated by exactly this delimiter on its own line:
+   328→   328→---POST---
+   329→   329→No numbers. No labels. No titles. No intro text. No outro text. Just the posts.
+   330→   330→The VERY FIRST character of your response must be the start of Post #1.`;
+   331→   331→}
+   332→   332→
+   333→   333→/* ------------------------------------------------------------------ */
+   334→   334→/*  Prompt enhancer — turns simple topics into detailed prompts        */
+   335→   335→/* ------------------------------------------------------------------ */
+   336→   336→
+   337→   337→function buildEnhancePrompt(topic: string): string {
+   338→   338→  return `You are a prompt engineering expert. Take this simple topic or content and rewrite it into a detailed, specific, context-rich version that will produce much better AI-generated social media content.
+   339→   339→
+   340→   340→ORIGINAL INPUT:
+   341→   341→"${topic}"
+   342→   342→
+   343→   343→Your enhanced version should:
+   344→   344→1. Add specific angles, context, and target audience details
+   345→   345→2. Include 2-3 specific sub-topics or talking points
+   346→   346→3. Make it vivid and specific rather than generic
+   347→   347→4. Keep it concise (2-4 sentences max)
+   348→   348→5. DO NOT add quotes around the output
+   349→   349→6. Output ONLY the enhanced text, nothing else
+   350→   350→
+   351→   351→EXAMPLE:
+   352→   352→Input: "marketing tips"
+   353→   353→Output: "5 counterintuitive marketing strategies that helped small SaaS startups grow from 0 to 10K users in 6 months, including specific tactics for LinkedIn content marketing, Twitter engagement threads, and email funnel optimization for B2B"
+   354→   354→
+   355→   355→Now enhance the user's input:`;
+   356→   356→}
+   357→   357→
+   358→   358→/* ------------------------------------------------------------------ */
+   359→   359→/*  Post parser — multi-strategy with length validation                */
+   360→   360→/* ------------------------------------------------------------------ */
+   361→   361→
+   362→   362→function parsePosts(raw: string, platform: string): string[] {
+   363→   363→  const profile = PLATFORM_PROFILES[platform] || PLATFORM_PROFILES.twitter;
+   364→   364→  let posts: string[] = [];
+   365→   365→
+   366→   366→  // Pre-clean: strip trailing incomplete delimiter artifacts at the very end
+   367→   367→  if (raw.endsWith("POST---")) {
+   368→   368→    raw = raw.slice(0, -8).trim();
+   369→   369→  }
+   370→   370→
+   371→   371→  // Strategy 1: Primary delimiter (most reliable)
+   372→   372→  if (raw.includes("---POST---")) {
+   373→   373→    posts = raw.split("---POST---").map((p) => p.trim()).filter((p) => p.length > 15);
+   374→   374→  }
+   375→   375→
+   376→   376→  // Strategy 2: Numbered list pattern (1. 2. 3. etc.)
+   377→   377→  if (posts.length <= 1) {
+   378→   378→    const numbered = raw
+   379→   379→      .split(/(?:^|\n)\s*\d+[\.\)]\s+/)
+   380→   380→      .map((p) => p.trim())
+   381→   381→      .filter((p) => p.length > 15);
+   382→   382→    if (numbered.length > posts.length) posts = numbered;
+   383→   383→  }
+   384→   384→
+   385→   385→  // Strategy 3: Split by hashtag clusters (works for short AND long platforms)
+   386→   386→  if (posts.length <= 1) {
+   387→   387→    const hashSplit = raw
+   388→   388→      .split(/\n\s*\n(?=#)/)
+   389→   389→      .map((p) => p.trim())
+   390→   390→      .filter((p) => p.length > 20);
+   391→   391→    if (hashSplit.length > posts.length) posts = hashSplit;
+   392→   392→  }
+   393→   393→
+   394→   394→  // Strategy 4: For long platforms, split by repeated "Post #N" labels
+   395→   395→  if (posts.length <= 1) {
+   396→   396→    const labelSplit = raw
+   397→   397→      .split(/(?:(?:^|\n)\s*(?:Post|POST)\s*#\d+[\s:\-]*)/i)
+   398→   398→      .map((p) => p.trim())
+   399→   399→      .filter((p) => p.length > 50);
+   400→   400→    if (labelSplit.length > posts.length) posts = labelSplit;
+   401→   401→  }
+   402→   402→
+   403→   403→  // Smart split: for ANY platform, if a post is way over maxChars,
+   404→   404→  // it likely contains multiple posts merged. Split at natural boundaries.
+   405→   405→  {
+   406→   406→    const expanded: string[] = [];
+   407→   407→    for (const post of posts) {
+   408→   408→      if (post.length > profile.maxChars * 1.1) {
+   409→   409→        let chunks: string[] = [];
+   410→   410→
+   411→   411→        // Strategy A: Split at double-newline + hashtag (good for IG, YT)
+   412→   412→        chunks = post.split(/\n\n(?=#)/).map((c) => c.trim()).filter((c) => c.length > 15);
+   413→   413→
+   414→   414→        // Strategy B: Split at double-newline + emoji/numbered header
+   415→   415→        if (chunks.length <= 1) {
+   416→   416→          chunks = post.split(/\n\s*\n(?=[\d#\-*])/).map((c) => c.trim()).filter((c) => c.length > 15);
+   417→   417→        }
+   418→   418→
+   419→   419→        // Strategy C: Split at "Post #N" labels within the merged block
+   420→   420→        if (chunks.length <= 1) {
+   421→   421→          chunks = post.split(/(?:^|\n)\s*Post\s*#\d+[\s:\-]*/i).map((c) => c.trim()).filter((c) => c.length > 50);
+   422→   422→        }
+   423→   423→
+   424→   424→        // Strategy D: For very long posts, try double newline boundaries
+   425→   425→        if (chunks.length <= 1 && post.length > profile.maxChars * 1.5) {
+   426→   426→          chunks = post.split(/\n\s*\n/).map((c) => c.trim()).filter((c) => c.length > 100);
+   427→   427→        }
+   428→   428→
+   429→   429→        if (chunks.length > 1) {
+   430→   430→          expanded.push(...chunks);
+   431→   431→        } else {
+   432→   432→          expanded.push(post);
+   433→   433→        }
+   434→   434→      } else {
+   435→   435→        expanded.push(post);
+   436→   436→      }
+   437→   437→    }
+   438→   438→    posts = expanded;
+   439→   439→  }
+   440→   440→
+   441→   441→  // Clean each post
+   442→   442→  posts = posts.map((p) =>
+   443→   443→    p
+   444→   444→      .replace(/^\s*Post\s*\d+[\s:\-]*/i, "")
+   445→   445→      .replace(/^\s*[-—]{2,}\s*/gm, "")
+   446→   446→      .replace(/^\s*#{1,}\s*Post\s*\d+/i, "")
+   447→   447→      .trim()
+   448→   448→  );
+   449→   449→
+   450→   450→  // Filter out posts that are clearly too short or too long for the platform
+   451→   451→  posts = posts.filter((p) => {
+   452→   452→    if (p.length < 15) return false;
+   453→   453→    if (p.length > profile.maxChars * 1.5) return false;
+   454→   454→    return true;
+   455→   455→  });
+   456→   456→
+   457→   457→  return posts;
+   458→   458→}
+   459→   459→
+   460→   460→/* ------------------------------------------------------------------ */
+   461→   461→/*  Rate limiter — database-backed for production                       */
+   462→   462→/* ------------------------------------------------------------------ */
+   463→   463→
+   464→   464→const RATE_LIMIT_MAX = 5;
+   465→   465→const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+   466→   466→
+   467→   467→async function isRateLimited(ip: string): Promise<boolean> {
+   468→   468→  const since = new Date(Date.now() - RATE_LIMIT_WINDOW);
+   469→   469→  const recentCount = await db.rateLimitLog.count({
+   470→   470→    where: {
+   471→   471→      ip,
+   472→   472→      createdAt: { gte: since },
+   473→   473→    },
+   474→   474→  });
+   475→   475→  return recentCount >= RATE_LIMIT_MAX;
+   476→   476→}
+   477→   477→
+   478→   478→async function logRateLimit(ip: string): Promise<void> {
+   479→   479→  await db.rateLimitLog.create({ data: { ip } }).catch(() => {});
+   480→   480→}
+   481→   481→
+   482→   482→/* ------------------------------------------------------------------ */
+   483→   483→/*  Credit system — cost per generation, deduct from user                */
+   484→   484→/* ------------------------------------------------------------------ */
+   485→   485→
+   486→   486→// Credit costs per action
+   487→   487→const CREDIT_COST_GENERATE = 1;   // 1 credit per generation
+   488→   488→const CREDIT_COST_ENHANCE  = 0;   // free — encourage users to write better prompts
+   489→   489→
+   490→   490→// Plan limits
+   491→   491→const PLAN_CREDITS: Record<string, number> = {
+   492→   492→  free: 20,
+   493→   493→  pro: 500,
+   494→   494→  enterprise: 99999, // effectively unlimited
+   495→   495→};
+   496→   496→
+   497→   497→function getCreditsForPlan(plan: string): number {
+   498→   498→  return PLAN_CREDITS[plan] || PLAN_CREDITS.free;
+   499→   499→}
+   500→   500→
+   501→   501→interface CreditInfo {
+   502→   502→  allowed: boolean;
+   503→   503→  remaining: number;
+   504→   504→  cost: number;
+   505→   505→  plan: string;
+   506→   506→  maxCredits: number;
+   507→   507→}
+   508→   508→
+   509→   509→async function checkAndDeductCredits(userId: string, cost: number): Promise<CreditInfo> {
+   510→   510→  const user = await db.user.findUnique({ where: { id: userId } });
+   511→   511→  if (!user) return { allowed: true, remaining: 20, cost, plan: 'free', maxCredits: 20 };
+   512→   512→
+   513→   513→  // Enterprise = unlimited
+   514→   514→  if (user.plan === 'enterprise') {
+   515→   515→    return { allowed: true, remaining: 99999, cost, plan: 'enterprise', maxCredits: 99999 };
+   516→   516→  }
+   517→   517→
+   518→   518→  const maxCredits = getCreditsForPlan(user.plan);
+   519→   519→  const remaining = user.credits;
+   520→   520→
+   521→   521→  if (remaining < cost) {
+   522→   522→    return { allowed: false, remaining: 0, cost, plan: user.plan, maxCredits };
+   523→   523→  }
+   524→   524→
+   525→   525→  // Deduct credits
+   526→   526→  await db.user.update({
+   527→   527→    where: { id: userId },
+   528→   528→    data: { credits: { decrement: cost } },
+   529→   529→  });
+   530→   530→
+   531→   531→  return {
+   532→   532→    allowed: true,
+   533→   533→    remaining: user.credits - cost,
+   534→   534→    cost,
+   535→   535→    plan: user.plan,
+   536→   536→    maxCredits,
+   537→   537→  };
+   538→   538→}
+   539→   539→
+   540→   540→/* ------------------------------------------------------------------ */
+   541→   541→/*  GET credits — endpoint for frontend to check balance               */
+   542→   542→/* ------------------------------------------------------------------ */
+   543→   543→
+   544→   544→export async function GET(request: NextRequest) {
+   545→   545→  try {
+   546→   546→    const userId = request.nextUrl.searchParams.get('userId');
+   547→   547→    const email = request.nextUrl.searchParams.get('email');
+   548→   548→
+   549→   549→    // Try to find user by ID first, then by email as fallback
+   550→   550→    let user = null;
+   551→   551→    if (userId) {
+   552→   552→      user = await db.user.findUnique({
+   553→   553→        where: { id: userId },
+   554→   554→        select: { credits: true, plan: true, createdAt: true },
+   555→   555→      });
+   556→   556→    }
+   557→   557→    if (!user && email) {
+   558→   558→      user = await db.user.findUnique({
+   559→   559→        where: { email },
+   560→   560→        select: { credits: true, plan: true, createdAt: true },
+   561→   561→      });
+   562→   562→    }
+   563→   563→    if (!user) {
+   564→   564→      return NextResponse.json({ credits: 20, plan: 'free', maxCredits: 20 });
+   565→   565→    }
+   566→   566→    return NextResponse.json({
+   567→   567→      credits: user.credits,
+   568→   568→      plan: user.plan,
+   569→   569→      maxCredits: getCreditsForPlan(user.plan),
+   570→   570→    });
+   571→   571→  } catch (error) {
+   572→   572→    return NextResponse.json({ error: 'Failed to fetch credits' }, { status: 500 });
+   573→   573→  }
+   574→   574→}
+   575→   575→
+   576→   576→/* ------------------------------------------------------------------ */
+   577→   577→/*  API Route                                                          */
+   578→   578→/* ------------------------------------------------------------------ */
+   579→   579→
+   580→   580→export async function POST(request: NextRequest) {
+   581→   581→  try {
+   582→   582→    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+   583→   583→
+   584→   584→    // Rate limiting by IP (database-backed)
+   585→   585→    if (await isRateLimited(ip)) {
+   586→   586→      await logRateLimit(ip);
+   587→   587→      return NextResponse.json(
+   588→   588→        { error: "Rate limit reached. Please wait a moment before generating more posts." },
+   589→   589→        { status: 429 }
+   590→   590→      );
+   591→   591→    }
+   592→   592→
+   593→   593→    const body = await request.json();
+   594→   594→    const { topic, platform, tone, count, mode, brandVoice, userId } = body as GenerateRequest;
+   595→   595→
+   596→   596→    if (!topic || topic.trim().length < 3) {
+   597→   597→      return NextResponse.json({ error: "Please provide a topic (at least 3 characters)" }, { status: 400 });
+   598→   598→    }
+   599→   599→
+   600→   600→    // ENHANCE MODE — just return an enhanced prompt, don't generate posts
+   601→   601→    if (mode === "enhance") {
+   602→   602→      const enhancePrompt = buildEnhancePrompt(topic.trim());
+   603→   603→      const enhanced = await generateWithAI(enhancePrompt);
+   604→   604→      return NextResponse.json({
+   605→   605→        success: true,
+   606→   606→        enhanced: enhanced.trim().replace(/^["']|["']$/g, ""),
+   607→   607→      });
+   608→   608→    }
+   609→   609→
+   610→   610→    // Credit check for authenticated users
+   611→   611→    if (userId) {
+   612→   612→      const creditCheck = await checkAndDeductCredits(userId, CREDIT_COST_GENERATE);
+   613→   613→      if (!creditCheck.allowed) {
+   614→   614→        return NextResponse.json(
+   615→   615→          { error: "No credits remaining. Upgrade your plan for more credits.", creditsRemaining: 0, plan: creditCheck.plan },
+   616→   616→          { status: 403 }
+   617→   617→        );
+   618→   618→      }
+   619→   619→    }
+   620→   620→
+   621→   621→    const validPlatforms = Object.keys(PLATFORM_PROFILES);
+   622→   622→    if (!platform || !validPlatforms.includes(platform)) {
+   623→   623→      return NextResponse.json({ error: `Invalid platform. Choose from: ${validPlatforms.join(", ")}` }, { status: 400 });
+   624→   624→    }
+   625→   625→
+   626→   626→    const validTones = Object.keys(TONE_INSTRUCTIONS);
+   627→   627→    if (!tone || !validTones.includes(tone)) {
+   628→   628→      return NextResponse.json({ error: `Invalid tone. Choose from: ${validTones.join(", ")}` }, { status: 400 });
+   629→   629→    }
+   630→   630→
+   631→   631→    const postCount = Math.min(Math.max(count || 3, 1), 10);
+   632→   632→    const prompt = buildPrompt({ topic, platform, tone, count: postCount, mode: mode || "generate", brandVoice, userId });
+   633→   633→
+   634→   634→    const rawContent = await generateWithAI(prompt);
+   635→   635→    const posts = parsePosts(rawContent, platform);
+   636→   636→
+   637→   637→    if (posts.length === 0) {
+   638→   638→      return NextResponse.json({ error: "Failed to parse generated content. Please try again." }, { status: 500 });
+   639→   639→    }
+   640→   640→
+   641→   641→    // Log generation to database (fire-and-forget)
+   642→   642→    db.generation.create({
+   643→   643→      data: {
+   644→   644→        userId: userId || null,
+   645→   645→        topic: topic.trim(),
+   646→   646→        platform,
+   647→   647→        tone,
+   648→   648→        postCount,
+   649→   649→        postsGenerated: posts.length,
+   650→   650→        mode: mode || "generate",
+   651→   651→        postsJson: JSON.stringify(posts),
+   652→   652→        ip,
+   653→   653→      },
+   654→   654→    }).then(() => {
+   655→   655→      // Increment user credits
+   656→   656→      if (userId) {
+   657→   657→        db.user.update({
+   658→   658→          where: { id: userId },
+   659→   659→          data: { creditsUsed: { increment: 1 } },
+   660→   660→        }).catch(() => {});
+   661→   661→      }
+   662→   662→    }).catch(() => {});
+   663→   663→
+   664→   664→    // Get remaining credits for response
+   665→   665→    let creditsRemaining: number | undefined;
+   666→   666→    let userPlan: string | undefined;
+   667→   667→    let creditCost: number | undefined;
+   668→   668→    if (userId) {
+   669→   669→      const user = await db.user.findUnique({ where: { id: userId }, select: { credits: true, plan: true } });
+   670→   670→      if (user) {
+   671→   671→        creditsRemaining = user.credits;
+   672→   672→        userPlan = user.plan;
+   673→   673→      }
+   674→   674→    }
+   675→   675→
+   676→   676→    return NextResponse.json({
+   677→   677→      success: true,
+   678→   678→      posts,
+   679→   679→      platform,
+   680→   680→      topic,
+   681→   681→      tone,
+   682→   682→      generatedAt: new Date().toISOString(),
+   683→   683→      creditsRemaining,
+   684→   684→      plan: userPlan,
+   685→   685→      creditCost: CREDIT_COST_GENERATE,
+   686→   686→    });
+   687→   687→  } catch (error) {
+   688→   688→    console.error("Generation error:", error);
+   689→   689→    return NextResponse.json({ error: "Internal server error. Please try again later." }, { status: 500 });
+   690→   690→  }
+   691→   691→}
+   692→   692→

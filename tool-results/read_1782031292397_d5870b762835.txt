@@ -1,0 +1,502 @@
+  1250→
+  1251→                      {/* Brand Voice Toggle */}
+  1252→                      <div>
+  1253→                        <button
+  1254→                          onClick={() => setShowBrandVoice(!showBrandVoice)}
+  1255→                          className="flex items-center gap-2 text-sm font-semibold cursor-pointer hover:text-orange-500 transition-colors"
+  1256→                        >
+  1257→                          <Mic className="h-4 w-4 text-orange-500" />
+  1258→                          Brand Voice Training
+  1259→                          <ChevronDown className={`h-4 w-4 transition-transform ${showBrandVoice ? 'rotate-180' : ''}`} />
+  1260→                          <Badge variant="secondary" className="text-[10px] ml-1">Pro</Badge>
+  1261→                        </button>
+  1262→                        <AnimatePresence>
+  1263→                          {showBrandVoice && (
+  1264→                            <motion.div
+  1265→                              initial={{ height: 0, opacity: 0 }}
+  1266→                              animate={{ height: 'auto', opacity: 1 }}
+  1267→                              exit={{ height: 0, opacity: 0 }}
+  1268→                              className="overflow-hidden"
+  1269→                            >
+  1270→                              <div className="mt-3">
+  1271→                                <Textarea
+  1272→                                  value={brandVoice}
+  1273→                                  onChange={(e) => setBrandVoice(e.target.value)}
+  1274→                                  placeholder="Describe your brand voice or paste examples of your past posts. E.g., 'I write in a casual, witty tone with lots of analogies. I avoid corporate jargon and use short sentences. My audience is startup founders aged 25-40.'"
+  1275→                                  className="min-h-[100px] resize-none rounded-xl text-sm leading-relaxed"
+  1276→                                />
+  1277→                                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+  1278→                                  <Info className="h-3 w-3" />
+  1279→                                  <span>AI will match this voice in every generated post</span>
+  1280→                                </div>
+  1281→                              </div>
+  1282→                            </motion.div>
+  1283→                          )}
+  1284→                        </AnimatePresence>
+  1285→                      </div>
+  1286→
+  1287→                      {/* Post Count */}
+  1288→                      <div>
+  1289→                        <label className="text-sm font-semibold mb-3 block">
+  1290→                          Number of Posts (per platform)
+  1291→                        </label>
+  1292→                        <div className="flex items-center gap-3">
+  1293→                          <input
+  1294→                            type="range"
+  1295→                            min={1}
+  1296→                            max={10}
+  1297→                            value={postCount}
+  1298→                            onChange={(e) => setPostCount(Number(e.target.value))}
+  1299→                            className="flex-1 accent-orange-500"
+  1300→                          />
+  1301→                          <span className="text-sm font-mono font-semibold bg-muted px-3 py-1.5 rounded-lg min-w-[48px] text-center">
+  1302→                            {postCount}
+  1303→                          </span>
+  1304→                        </div>
+  1305→                      </div>
+  1306→                    </CardContent>
+  1307→                  </Card>
+  1308→
+  1309→                  {/* Generate Button */}
+  1310→                  <div className="flex gap-3">
+  1311→                    <Button
+  1312→                      onClick={handleGenerate}
+  1313→                      disabled={isGenerating || (credits !== null && credits <= 0)}
+  1314→                      className="flex-1 gradient-brand text-white border-0 hover:opacity-90 cursor-pointer rounded-xl py-6 text-base font-semibold"
+  1315→                      size="lg"
+  1316→                    >
+  1317→                      {isGenerating ? (
+  1318→                        <>
+  1319→                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+  1320→                          Generating...
+  1321→                        </>
+  1322→                      ) : (
+  1323→                        <>
+  1324→                          <Zap className="h-5 w-5 mr-2" />
+  1325→                          Generate {postCount} Post{postCount > 1 ? 's' : ''}
+  1326→                          {selectedPlatforms.length > 1 ? ` x${selectedPlatforms.length} platforms` : ''}
+  1327→                        </>
+  1328→                      )}
+  1329→                    </Button>
+  1330→                    {generatedPosts.length > 0 && (
+  1331→                      <Button
+  1332→                        variant="outline"
+  1333→                        onClick={handleClear}
+  1334→                        className="rounded-xl px-4 cursor-pointer"
+  1335→                        size="lg"
+  1336→                      >
+  1337→                        <RefreshCw className="h-4 w-4" />
+  1338→                      </Button>
+  1339→                    )}
+  1340→                  </div>
+  1341→
+  1342→                  {credits !== null && credits <= 0 && (
+  1343→                    <Card className="rounded-2xl border-orange-300 bg-orange-50/50">
+  1344→                      <CardContent className="p-4 flex items-center gap-3">
+  1345→                        <Zap className="h-5 w-5 text-orange-500 flex-shrink-0" />
+  1346→                        <div>
+  1347→                          <p className="text-sm font-semibold text-orange-700">No credits remaining</p>
+  1348→                          <p className="text-xs text-orange-600/70">Upgrade to Pro for 500 credits/month</p>
+  1349→                        </div>
+  1350→                        <Button size="sm" className="ml-auto gradient-brand text-white border-0 cursor-pointer text-xs">
+  1351→                          Upgrade
+  1352→                        </Button>
+  1353→                      </CardContent>
+  1354→                    </Card>
+  1355→                  )}
+  1356→                </div>
+  1357→
+  1358→                {/* RIGHT: Results */}
+  1359→                <div ref={resultsRef}>
+  1360→                  {generatedPosts.length === 0 && !isGenerating ? (
+  1361→                    <Card className="rounded-2xl border-dashed border-2 border-border/50">
+  1362→                      <CardContent className="p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
+  1363→                        <div className="h-20 w-20 rounded-2xl bg-muted flex items-center justify-center mb-6">
+  1364→                          <Sparkles className="h-10 w-10 text-muted-foreground" />
+  1365→                        </div>
+  1366→                        <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
+  1367→                        <p className="text-sm text-muted-foreground max-w-sm">
+  1368→                          Enter a topic or paste content to repurpose, choose your platforms and tone, then hit generate. Your AI-crafted posts will appear here with schedule and publish options.
+  1369→                        </p>
+  1370→                        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+  1371→                          <Badge variant="secondary" className="text-[10px]">6 platforms</Badge>
+  1372→                          <Badge variant="secondary" className="text-[10px]">6 tones</Badge>
+  1373→                          <Badge variant="secondary" className="text-[10px]">Brand voice</Badge>
+  1374→                          <Badge variant="secondary" className="text-[10px]">Schedule</Badge>
+  1375→                        </div>
+  1376→                      </CardContent>
+  1377→                    </Card>
+  1378→                  ) : isGenerating ? (
+  1379→                    <Card className="rounded-2xl border-border/50">
+  1380→                      <CardContent className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+  1381→                        <div className="relative">
+  1382→                          <div className="h-16 w-16 rounded-2xl gradient-brand flex items-center justify-center animate-pulse">
+  1383→                            <Zap className="h-8 w-8 text-white" />
+  1384→                          </div>
+  1385→                          <div className="absolute inset-0 rounded-2xl gradient-brand animate-ping opacity-20" />
+  1386→                        </div>
+  1387→                        <h3 className="mt-6 text-lg font-semibold">Creating your posts...</h3>
+  1388→                        <p className="text-sm text-muted-foreground mt-2">
+  1389→                          Generating {postCount} post{postCount > 1 ? 's' : ''} for {selectedPlatforms.length} platform{selectedPlatforms.length > 1 ? 's' : ''}
+  1390→                        </p>
+  1391→                        <div className="mt-6 w-48 h-1.5 bg-muted rounded-full overflow-hidden">
+  1392→                          <div className="h-full gradient-brand rounded-full animate-[shimmer_2s_ease-in-out_infinite]" style={{ width: '60%' }} />
+  1393→                        </div>
+  1394→                      </CardContent>
+  1395→                    </Card>
+  1396→                  ) : (
+  1397→                    <div className="space-y-4">
+  1398→                      <div className="flex items-center justify-between">
+  1399→                        <h3 className="text-sm font-semibold text-muted-foreground">
+  1400→                          Generated Posts
+  1401→                          <Badge variant="secondary" className="ml-2">{generatedPosts.length}</Badge>
+  1402→                        </h3>
+  1403→                        <div className="flex items-center gap-2">
+  1404→                          {selectedPlatforms.length === 1 && (
+  1405→                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+  1406→                              {platformIcon(selectedPlatforms[0], 'h-3.5 w-3.5')}
+  1407→                              {PLATFORMS.find((p) => p.id === selectedPlatforms[0])?.name}
+  1408→                            </div>
+  1409→                          )}
+  1410→                        </div>
+  1411→                      </div>
+  1412→
+  1413→                      {generatedPosts.map((post, i) => (
+  1414→                        <motion.div
+  1415→                          key={post.id}
+  1416→                          initial={{ opacity: 0, y: 16 }}
+  1417→                          animate={{ opacity: 1, y: 0 }}
+  1418→                          transition={{ duration: 0.4, delay: i * 0.06 }}
+  1419→                        >
+  1420→                          <Card className="rounded-2xl border-border/50 card-lift">
+  1421→                            <CardContent className="p-5">
+  1422→                              <div className="flex items-start justify-between gap-4">
+  1423→                                <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+  1424→                                  <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
+  1425→                                    #{i + 1}
+  1426→                                  </span>
+  1427→                                  {platformIcon(post.platform, 'h-3.5 w-3.5')}
+  1428→                                  <span className="text-[10px] text-muted-foreground">
+  1429→                                    {PLATFORMS.find((p) => p.id === post.platform)?.name}
+  1430→                                  </span>
+  1431→                                </div>
+  1432→                                <div className="flex gap-1.5 flex-shrink-0">
+  1433→                                  <Button
+  1434→                                    variant="ghost"
+  1435→                                    size="sm"
+  1436→                                    onClick={() => handleCopy(post.id, post.content)}
+  1437→                                    className="cursor-pointer h-8 px-2.5"
+  1438→                                    title="Copy to clipboard"
+  1439→                                  >
+  1440→                                    {post.copied ? (
+  1441→                                      <Check className="h-4 w-4 text-green-500" />
+  1442→                                    ) : (
+  1443→                                      <Copy className="h-4 w-4" />
+  1444→                                    )}
+  1445→                                  </Button>
+  1446→                                  <Button
+  1447→                                    variant="ghost"
+  1448→                                    size="sm"
+  1449→                                    onClick={() => handlePublishNow(post.id)}
+  1450→                                    className="cursor-pointer h-8 px-2.5"
+  1451→                                    title="Publish now"
+  1452→                                  >
+  1453→                                    <Send className="h-4 w-4" />
+  1454→                                  </Button>
+  1455→                                  <Button
+  1456→                                    variant="ghost"
+  1457→                                    size="sm"
+  1458→                                    onClick={() => setShowScheduleModal(post.id)}
+  1459→                                    className="cursor-pointer h-8 px-2.5"
+  1460→                                    title="Schedule for later"
+  1461→                                  >
+  1462→                                    <CalendarClock className="h-4 w-4" />
+  1463→                                  </Button>
+  1464→                                </div>
+  1465→                              </div>
+  1466→                              <div className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
+  1467→                                {post.content}
+  1468→                              </div>
+  1469→                              <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
+  1470→                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+  1471→                                  <span className="capitalize">{TONES.find((t) => t.id === selectedTone)?.label}</span>
+  1472→                                  <span>•</span>
+  1473→                                  <span>{post.content.length} chars</span>
+  1474→                                  {brandVoice.trim() && (
+  1475→                                    <>
+  1476→                                      <span>•</span>
+  1477→                                      <Mic className="h-3 w-3 text-orange-500" />
+  1478→                                      <span className="text-orange-500">Brand Voice</span>
+  1479→                                    </>
+  1480→                                  )}
+  1481→                                </div>
+  1482→                                <div className="flex items-center gap-1.5">
+  1483→                                  {post.scheduled && (
+  1484→                                    <Badge className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 border-0">
+  1485→                                      <Check className="h-3 w-3 mr-0.5" /> Scheduled
+  1486→                                    </Badge>
+  1487→                                  )}
+  1488→                                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+  1489→                                    AI Generated
+  1490→                                  </Badge>
+  1491→                                </div>
+  1492→                              </div>
+  1493→                            </CardContent>
+  1494→                          </Card>
+  1495→                        </motion.div>
+  1496→                      ))}
+  1497→
+  1498→                      {/* Schedule Modal */}
+  1499→                      <AnimatePresence>
+  1500→                        {showScheduleModal && (
+  1501→                          <motion.div
+  1502→                            initial={{ opacity: 0, scale: 0.95 }}
+  1503→                            animate={{ opacity: 1, scale: 1 }}
+  1504→                            exit={{ opacity: 0, scale: 0.95 }}
+  1505→                          >
+  1506→                            <Card className="rounded-2xl border-orange-300 soft-glow">
+  1507→                              <CardContent className="p-5">
+  1508→                                <div className="flex items-center justify-between mb-4">
+  1509→                                  <h4 className="text-sm font-semibold flex items-center gap-2">
+  1510→                                    <CalendarClock className="h-4 w-4 text-orange-500" />
+  1511→                                    Schedule Post
+  1512→                                  </h4>
+  1513→                                  <Button
+  1514→                                    variant="ghost"
+  1515→                                    size="sm"
+  1516→                                    onClick={() => setShowScheduleModal(null)}
+  1517→                                    className="cursor-pointer h-7 w-7 p-0"
+  1518→                                  >
+  1519→                                    <X className="h-4 w-4" />
+  1520→                                  </Button>
+  1521→                                </div>
+  1522→                                <div className="grid grid-cols-2 gap-3">
+  1523→                                  <div>
+  1524→                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date</label>
+  1525→                                    <input
+  1526→                                      type="date"
+  1527→                                      value={scheduleDate}
+  1528→                                      onChange={(e) => setScheduleDate(e.target.value)}
+  1529→                                      min={new Date().toISOString().split('T')[0]}
+  1530→                                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+  1531→                                    />
+  1532→                                  </div>
+  1533→                                  <div>
+  1534→                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Time</label>
+  1535→                                    <input
+  1536→                                      type="time"
+  1537→                                      value={scheduleTime}
+  1538→                                      onChange={(e) => setScheduleTime(e.target.value)}
+  1539→                                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+  1540→                                    />
+  1541→                                  </div>
+  1542→                                </div>
+  1543→                                <Button
+  1544→                                  onClick={() => handleSchedule(showScheduleModal)}
+  1545→                                  className="mt-4 w-full gradient-brand text-white border-0 cursor-pointer rounded-xl"
+  1546→                                  size="sm"
+  1547→                                >
+  1548→                                  <CalendarClock className="h-4 w-4 mr-1.5" />
+  1549→                                  Confirm Schedule
+  1550→                                </Button>
+  1551→                              </CardContent>
+  1552→                            </Card>
+  1553→                          </motion.div>
+  1554→                        )}
+  1555→                      </AnimatePresence>
+  1556→
+  1557→                      {/* Regenerate */}
+  1558→                      <div className="pt-4">
+  1559→                        <Button
+  1560→                          onClick={handleGenerate}
+  1561→                          disabled={isGenerating || (credits !== null && credits <= 0)}
+  1562→                          variant="outline"
+  1563→                          className="w-full cursor-pointer rounded-xl py-5"
+  1564→                        >
+  1565→                          <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+  1566→                          Generate More Posts
+  1567→                        </Button>
+  1568→                      </div>
+  1569→                    </div>
+  1570→                  )}
+  1571→                </div>
+  1572→              </div>
+  1573→            </motion.div>
+  1574→          )}
+  1575→
+  1576→          {/* -------------------------------------------------------- */}
+  1577→          {/*  ADMIN VIEW — Stats Dashboard                              */}
+  1578→          {/* -------------------------------------------------------- */}
+  1579→          {activeView === 'admin' && (
+  1580→            <motion.div
+  1581→              key="admin"
+  1582→              initial={{ opacity: 0 }}
+  1583→              animate={{ opacity: 1 }}
+  1584→              exit={{ opacity: 0 }}
+  1585→              transition={{ duration: 0.3 }}
+  1586→              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12"
+  1587→            >
+  1588→              {/* Admin Header */}
+  1589→              <div className="flex items-center justify-between mb-8">
+  1590→                <div>
+  1591→                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3">
+  1592→                    <LayoutDashboard className="h-7 w-7 text-orange-500" />
+  1593→                    Admin Dashboard
+  1594→                  </h1>
+  1595→                  <p className="text-muted-foreground mt-1">
+  1596→                    Real-time analytics, generation stats, and system health
+  1597→                  </p>
+  1598→                </div>
+  1599→                <div className="flex items-center gap-3">
+  1600→                  <Button
+  1601→                    variant="outline"
+  1602→                    size="sm"
+  1603→                    onClick={() => {
+  1604→                      setAdminLoading(true);
+  1605→                      fetch('/api/admin')
+  1606→                        .then((r) => r.json())
+  1607→                        .then((data) => setAdminStats(data))
+  1608→                        .catch(() => setAdminStats(null))
+  1609→                        .finally(() => setAdminLoading(false));
+  1610→                    }}
+  1611→                    disabled={adminLoading}
+  1612→                    className="cursor-pointer"
+  1613→                  >
+  1614→                    {adminLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+  1615→                    Refresh
+  1616→                  </Button>
+  1617→                  <Button
+  1618→                    variant="outline"
+  1619→                    size="sm"
+  1620→                    onClick={() => setActiveView('landing')}
+  1621→                    className="cursor-pointer"
+  1622→                  >
+  1623→                    Back to Home
+  1624→                  </Button>
+  1625→                </div>
+  1626→              </div>
+  1627→
+  1628→              {adminLoading && !adminStats ? (
+  1629→                <Card className="rounded-2xl border-border/50">
+  1630→                  <CardContent className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+  1631→                    <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+  1632→                    <p className="mt-4 text-sm text-muted-foreground">Loading dashboard...</p>
+  1633→                  </CardContent>
+  1634→                </Card>
+  1635→              ) : adminStats ? (
+  1636→                <div className="space-y-6">
+  1637→                  {/* Top Stats Row */}
+  1638→                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  1639→                    <Card className="rounded-2xl border-border/50">
+  1640→                      <CardContent className="p-5">
+  1641→                        <div className="flex items-center gap-3 mb-3">
+  1642→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+  1643→                            <Zap className="h-5 w-5 text-orange-500" />
+  1644→                          </div>
+  1645→                          <span className="text-xs font-medium text-muted-foreground">Total Generations</span>
+  1646→                        </div>
+  1647→                        <p className="text-3xl font-bold">{adminStats.totalGenerations}</p>
+  1648→                      </CardContent>
+  1649→                    </Card>
+  1650→                    <Card className="rounded-2xl border-border/50">
+  1651→                      <CardContent className="p-5">
+  1652→                        <div className="flex items-center gap-3 mb-3">
+  1653→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+  1654→                            <MessageSquare className="h-5 w-5 text-orange-500" />
+  1655→                          </div>
+  1656→                          <span className="text-xs font-medium text-muted-foreground">Posts Generated</span>
+  1657→                        </div>
+  1658→                        <p className="text-3xl font-bold">{adminStats.totalPostsGenerated}</p>
+  1659→                      </CardContent>
+  1660→                    </Card>
+  1661→                    <Card className="rounded-2xl border-border/50">
+  1662→                      <CardContent className="p-5">
+  1663→                        <div className="flex items-center gap-3 mb-3">
+  1664→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+  1665→                            <Shield className="h-5 w-5 text-orange-500" />
+  1666→                          </div>
+  1667→                          <span className="text-xs font-medium text-muted-foreground">Rate Limited</span>
+  1668→                        </div>
+  1669→                        <p className="text-3xl font-bold">{adminStats.rateLimitedRequests}</p>
+  1670→                      </CardContent>
+  1671→                    </Card>
+  1672→                    <Card className="rounded-2xl border-border/50">
+  1673→                      <CardContent className="p-5">
+  1674→                        <div className="flex items-center gap-3 mb-3">
+  1675→                          <div className="h-10 w-10 rounded-xl bg-brand-muted flex items-center justify-center">
+  1676→                            <Server className="h-5 w-5 text-orange-500" />
+  1677→                          </div>
+  1678→                          <span className="text-xs font-medium text-muted-foreground">Server Uptime</span>
+  1679→                        </div>
+  1680→                        <p className="text-3xl font-bold">
+  1681→                          {Math.floor(adminStats.uptime / 3600)}h {Math.floor((adminStats.uptime % 3600) / 60)}m
+  1682→                        </p>
+  1683→                      </CardContent>
+  1684→                    </Card>
+  1685→                  </div>
+  1686→
+  1687→                  {/* Charts Row */}
+  1688→                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  1689→                    {/* By Platform */}
+  1690→                    <Card className="rounded-2xl border-border/50">
+  1691→                      <CardContent className="p-6">
+  1692→                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+  1693→                          <Globe className="h-4 w-4 text-orange-500" />
+  1694→                          Generations by Platform
+  1695→                        </h3>
+  1696→                        <div className="space-y-3">
+  1697→                          {Object.entries(adminStats.generationsByPlatform).length > 0 ? (
+  1698→                            Object.entries(adminStats.generationsByPlatform)
+  1699→                              .sort(([, a], [, b]) => b - a)
+  1700→                              .map(([platform, count]) => {
+  1701→                                const maxCount = Math.max(...Object.values(adminStats.generationsByPlatform));
+  1702→                                const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+  1703→                                const pInfo = PLATFORMS.find((p) => p.id === platform);
+  1704→                                return (
+  1705→                                  <div key={platform} className="space-y-1.5">
+  1706→                                    <div className="flex items-center justify-between text-xs">
+  1707→                                      <span className="font-medium capitalize flex items-center gap-1.5">
+  1708→                                        {pInfo ? <pInfo.icon className="h-3.5 w-3.5" style={{ color: pInfo.color }} /> : null}
+  1709→                                        {platform}
+  1710→                                      </span>
+  1711→                                      <span className="text-muted-foreground">{count} gen{count !== 1 ? 's' : ''}</span>
+  1712→                                    </div>
+  1713→                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+  1714→                                      <div
+  1715→                                        className="h-full gradient-brand rounded-full transition-all duration-500"
+  1716→                                        style={{ width: `${pct}%` }}
+  1717→                                      />
+  1718→                                    </div>
+  1719→                                  </div>
+  1720→                                );
+  1721→                              })
+  1722→                          ) : (
+  1723→                            <p className="text-xs text-muted-foreground text-center py-8">No generations yet</p>
+  1724→                          )}
+  1725→                        </div>
+  1726→                      </CardContent>
+  1727→                    </Card>
+  1728→
+  1729→                    {/* By Tone */}
+  1730→                    <Card className="rounded-2xl border-border/50">
+  1731→                      <CardContent className="p-6">
+  1732→                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+  1733→                          <Palette className="h-4 w-4 text-orange-500" />
+  1734→                          Generations by Tone
+  1735→                        </h3>
+  1736→                        <div className="space-y-3">
+  1737→                          {Object.entries(adminStats.generationsByTone).length > 0 ? (
+  1738→                            Object.entries(adminStats.generationsByTone)
+  1739→                              .sort(([, a], [, b]) => b - a)
+  1740→                              .map(([tone, count]) => {
+  1741→                                const maxCount = Math.max(...Object.values(adminStats.generationsByTone));
+  1742→                                const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+  1743→                                const tInfo = TONES.find((t) => t.id === tone);
+  1744→                                return (
+  1745→                                  <div key={tone} className="space-y-1.5">
+  1746→                                    <div className="flex items-center justify-between text-xs">
+  1747→                                      <span className="font-medium">
+  1748→                                        {tInfo ? `${tInfo.emoji} ${tInfo.label}` : tone}
+  1749→                                      </span>
+
+[showing lines 1250-1749 of 2179; use offset=1750 with limit to continue reading]
